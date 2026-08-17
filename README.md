@@ -61,6 +61,29 @@ Mods validados conservados: `mods\test_chz_ps2_texfix` (port PS2→HD),
 
 ---
 
+## 🐞 Bugs conocidos (blackouts)
+
+Pantalla en negro (blackout) en determinadas secuencias renderizadas por el
+recompilador. Todos tienen la misma causa raíz: la animación/escena no se
+resuelve al render-target que se presenta (el personaje queda fuera del frustum
+de recorte con `clip_disable=0`, por lo que no rasteriza píxeles → negro opaco).
+En Xenia el mismo juego muestra estas escenas correctamente.
+
+| Bug | Descripción | Estado |
+|---|---|---|
+| Blackout al entrar en combate (duelo) | ~240 frames (~4.5s) de pantalla negra al iniciar un combate; tras el blackout todo se renderiza bien | ⚠️ Diagnosticado, no bloquea |
+| Blackout en modo historia | Pantalla negra al entrar en las secuencias/presentaciones del modo historia | ⚠️ Conocido |
+| Blackout en combates con presentación inicial | Pantalla negra en los combates que empiezan con animación/presentación de entrada | ⚠️ Conocido |
+| Blackout en ataques definitivos | Pantalla negra durante los ataques definitivos (secuencias cinemáticas/animadas) | ⚠️ Conocido |
+
+**Detalle técnico**: `docs/re/INVESTIGACION_BLACKOUT_DUELO.md`. El fix
+candidato (forzar `clip_disable=true` en `GetHostViewportInfo`) NO se aplicó por
+riesgo de regresión en los recortes legítimos del juego. Los blackouts no
+bloquean la jugabilidad (solo son una pausa en negro); el juego continúa
+correctamente después.
+
+---
+
 ## Setup / Build
 
 Requisitos: un compilador C++23 y CMake ≥ 3.25, y el [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
