@@ -1,0 +1,39 @@
+# Build output
+out/
+generated/
+
+# Game assets (do not distribute: copyrighted)
+assets/
+
+# ReXGlue SDK (third-party, provided separately by rexglue/rexglue-sdk)
+rexglue/
+rexglue-sdk/
+
+# Extracted/analysis outputs
+afs_out/
+
+# Community modding resources (third-party, large)
+modding resources discord/
+
+# Test mods / generated mods
+mods/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# User settings / local config
+dbz1_user.toml
+
+# Logs, dumps, scratch
+*.log
+*.dmp
+*.bmp
+crash_*/
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vs/
+.idea/

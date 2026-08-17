@@ -1,0 +1,48 @@
+﻿# ReXGlue
+
+## Docs
+
+- [Introduction](https://mintlify.wiki/rexglue/rexglue-sdk/introduction.md): Convert Xbox 360 PowerPC code into portable C++ that runs natively on modern platforms
+- [Architecture Overview](https://mintlify.wiki/rexglue/rexglue-sdk/architecture.md): Understanding the ReXGlue recompilation system and runtime architecture
+- [Installation](https://mintlify.wiki/rexglue/rexglue-sdk/installation.md): Install the ReXGlue SDK and set up your development environment
+- [Quick Start](https://mintlify.wiki/rexglue/rexglue-sdk/quickstart.md): Create your first recompiled Xbox 360 project with ReXGlue
+- [CLI Overview](https://mintlify.wiki/rexglue/rexglue-sdk/cli/overview.md): ReXGlue command-line interface for Xbox 360 recompilation
+- [rexglue init](https://mintlify.wiki/rexglue/rexglue-sdk/cli/init.md): Initialize a new ReXGlue recompilation project
+- [rexglue codegen](https://mintlify.wiki/rexglue/rexglue-sdk/cli/codegen.md): Analyze Xbox 360 XEX files and generate recompiled C++ code
+- [rexglue migrate](https://mintlify.wiki/rexglue/rexglue-sdk/cli/migrate.md): Migrate existing projects to the current SDK version
+- [rexglue recompile-tests](https://mintlify.wiki/rexglue/rexglue-sdk/cli/recompile-tests.md): Generate Catch2 unit tests from PPC assembly test cases
+- [Configuration Overview](https://mintlify.wiki/rexglue/rexglue-sdk/config/overview.md): Understanding ReXGlue's configuration system
+- [Project Configuration](https://mintlify.wiki/rexglue/rexglue-sdk/config/project-config.md): Setting up vcpkg and CMake for your recompilation project
+- [Codegen Configuration (TOML)](https://mintlify.wiki/rexglue/rexglue-sdk/config/codegen-config.md): Complete reference for ReXGlue recompiler TOML configuration
+- [Function Configuration](https://mintlify.wiki/rexglue/rexglue-sdk/config/functions.md): Manually define function boundaries, names, and discontinuous chunks
+- [Mid-Assembly Hooks](https://mintlify.wiki/rexglue/rexglue-sdk/config/hooks.md): Inject custom C++ code at specific PowerPC instruction addresses
+- [Static Recompilation](https://mintlify.wiki/rexglue/rexglue-sdk/concepts/recompilation.md): How ReXGlue translates PowerPC code to native C++ at build time
+- [PowerPC Instruction Translation](https://mintlify.wiki/rexglue/rexglue-sdk/concepts/ppc-emulation.md): How ReXGlue translates and executes PowerPC instructions on x86-64/ARM64
+- [Virtual Memory Layout](https://mintlify.wiki/rexglue/rexglue-sdk/concepts/memory-model.md): Xbox 360 memory architecture and ReXGlue's address translation system
+- [Xbox 360 Kernel Emulation](https://mintlify.wiki/rexglue/rexglue-sdk/concepts/kernel-emulation.md): How ReXGlue emulates the Xbox 360 operating system and kernel services
+- [ReXApp Base Class](https://mintlify.wiki/rexglue/rexglue-sdk/app/rexapp.md): Base class for recompiled Xbox 360 applications
+- [Runtime Setup](https://mintlify.wiki/rexglue/rexglue-sdk/app/runtime-setup.md): Configuring Runtime with backend systems
+- [Custom Hooks](https://mintlify.wiki/rexglue/rexglue-sdk/app/custom-hooks.md): Customizing application behavior with virtual hooks
+- [UI Integration](https://mintlify.wiki/rexglue/rexglue-sdk/app/ui-integration.md): Adding custom ImGui dialogs and overlays
+- [Exception Handlers](https://mintlify.wiki/rexglue/rexglue-sdk/advanced/exception-handlers.md): Generate SEH exception handlers and handle runtime exceptions in recompiled code
+- [Debugging Recompiled Code](https://mintlify.wiki/rexglue/rexglue-sdk/advanced/debugging.md): Debug and troubleshoot recompiled PowerPC executables
+- [Optimization and Performance](https://mintlify.wiki/rexglue/rexglue-sdk/advanced/optimization.md): Optimize recompiled code for maximum performance
+- [Platform Support](https://mintlify.wiki/rexglue/rexglue-sdk/advanced/platform-support.md): Platform-specific considerations for Windows and Linux
+- [rex::Runtime](https://mintlify.wiki/rexglue/rexglue-sdk/api/runtime.md): Main entry point for ReXGlue runtime subsystem
+- [RuntimeConfig](https://mintlify.wiki/rexglue/rexglue-sdk/api/runtime-config.md): Configuration structure for Runtime subsystem dependency injection
+- [rex::ReXApp](https://mintlify.wiki/rexglue/rexglue-sdk/api/rexapp.md): Base class for recompiled Xbox 360 applications
+- [PPCImageInfo](https://mintlify.wiki/rexglue/rexglue-sdk/api/ppc-image-info.md): PPC image layout structure passed to ReXApp
+- [PathConfig](https://mintlify.wiki/rexglue/rexglue-sdk/api/path-config.md): Content path configuration structure
+- [Recompiler](https://mintlify.wiki/rexglue/rexglue-sdk/api/recompiler.md): PPC to C++ recompiler interface
+- [RecompilerConfig](https://mintlify.wiki/rexglue/rexglue-sdk/api/recompiler-config.md): Recompiler configuration structure
+- [FunctionConfig](https://mintlify.wiki/rexglue/rexglue-sdk/api/function-config.md): Per-function configuration and related structures
+- [IGraphicsSystem](https://mintlify.wiki/rexglue/rexglue-sdk/api/graphics-system.md): Abstract graphics system interface for rendering pipeline dependency injection
+- [IAudioSystem](https://mintlify.wiki/rexglue/rexglue-sdk/api/audio-system.md): Abstract audio system interface for audio pipeline dependency injection
+- [IInputSystem](https://mintlify.wiki/rexglue/rexglue-sdk/api/input-system.md): Abstract input system interface for controller and input device dependency injection
+- [KernelState](https://mintlify.wiki/rexglue/rexglue-sdk/api/kernel-state.md): Central kernel state management for the Xbox 360 emulation environment
+- [rex::memory::Memory](https://mintlify.wiki/rexglue/rexglue-sdk/api/memory.md): Xbox 360 guest memory system with virtual and physical heaps
+- [rex::runtime::Processor](https://mintlify.wiki/rexglue/rexglue-sdk/api/processor.md): PowerPC processor emulation with IRQL and interrupt handling
+- [rex::system::XThread](https://mintlify.wiki/rexglue/rexglue-sdk/api/thread.md): Xbox 360 guest thread creation and management
+- [VirtualFileSystem](https://mintlify.wiki/rexglue/rexglue-sdk/api/vfs.md): Virtual file system for path-based device mounting and symbolic link resolution
+- [XexModule](https://mintlify.wiki/rexglue/rexglue-sdk/api/xex-module.md): XEX (Xbox Executable) module loader and runtime representation
+

@@ -1,0 +1,10 @@
+[project]
+sdk_version = "0.9.0"
+name = "dbz1"
+
+[entrypoint]
+file_path = "assets/default.xex"
+out_directory_path = "generated"
+includes = [
+  "dbz1_config.toml",
+]
