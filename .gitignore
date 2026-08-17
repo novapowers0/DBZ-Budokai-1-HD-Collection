@@ -1,39 +1,78 @@
-# Build output
-out/
-generated/
-
-# Game assets (do not distribute: copyrighted)
+# User-provided game files (never commit - copyrighted).
 assets/
+roms/
+isos/
+*.iso
+*.xiso
+*.xex
+*.afs
+*.bin
+*.awo
+*.azt
+*.amb
+*.amo
+*.amg
+
+# Save data and save states.
+saves/
+user_data/
+
+# Build output.
+out/
+build/
+build-*/
+release-stage/
+artifacts/
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.tlog
+
+# Generated code is derived from the copyrighted .xex. Regenerate locally.
+generated/*
+!generated/README.md
 
 # ReXGlue SDK (third-party, provided separately by rexglue/rexglue-sdk)
 rexglue/
 rexglue-sdk/
 
-# Extracted/analysis outputs
+# Extracted/analysis outputs.
 afs_out/
 
-# Community modding resources (third-party, large)
+# Community modding resources (third-party, large).
 modding resources discord/
 
-# Test mods / generated mods
-mods/
+# User mods (content may carry copyright; keep mods/ for user-built only).
+mods/*/us/
+mods/*/.disabled
 
-# Python bytecode
+# Python bytecode.
 __pycache__/
 *.pyc
 
-# User settings / local config
+# User settings / local config.
 dbz1_user.toml
+*.local.toml
+*.local.ini
 
-# Logs, dumps, scratch
+# Logs, dumps, scratch.
 *.log
 *.dmp
 *.bmp
-crash_*/
+*.png
+*.rgb
+*.csv
+*.frag
+*.bak
 *.tmp
+crash_*/
 
-# OS / editor
+# IDE, OS, and language caches.
+.vs/
+.vscode/
+.idea/
+*.swp
 .DS_Store
 Thumbs.db
-.vs/
-.idea/

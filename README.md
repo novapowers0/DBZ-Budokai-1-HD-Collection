@@ -2,46 +2,147 @@
 
 Copyright (c) 2026 **NovaPowers**. Released under the MIT License (see `LICENSE`).
 
-Recompilación de Dragon Ball Z Budokai 1 HD (Xbox 360) con el
-[ReXGlue SDK](https://github.com/rexglue/rexglue-sdk), con sistema de
-mods de modelos validado en juego.
+Static recompilation of **Dragon Ball Z: Budokai HD Collection** (Xbox 360) for
+Windows, built on the [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk),
+with a launcher and a model-modding system validated in-game.
 
-> 📘 **Documentación principal**:
-> - **Viabilidad del proyecto** (qué funciona y qué no): `docs/estado/VIABILIDAD_PROYECTO.md`
-> - **Tutorial de mods paso a paso**: `docs/tutoriales/TUTORIAL_MODS.md`
-> - **Formato de mods (técnico)**: `docs/tutoriales/FORMATO_MODS.md`
-> - **Catálogo de personajes→bins**: `docs/referencias/PERSONAJES_BINS.md`
+> ⚠️ **Origen**: este proyecto se **rehízo desde cero** sobre ReXGlue. El
+> repositorio [`WistfulHopes/DBZ1`](https://github.com/WistfulHopes/DBZ1) se
+> tomó **solo como referencia** (para entender la API del SDK), **NO como base
+> ni copia de código**. El launcher, mods, regiones y herramientas son trabajo
+> original de **NovaPowers**.
 
 ---
 
-## ⚠️ Aclaración sobre el origen
+## ⚖️ Copyright / Legal
 
-Este proyecto se **rehízo desde cero** sobre el [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk).
-El repositorio [`WistfulHopes/DBZ1`](https://github.com/WistfulHopes/DBZ1) se
-tomó **solo como referencia** (para entender la API del SDK y el flujo del
-recompile), pero **NO se usó como base ni se copió su código**. El launcher,
-el sistema de mods, la gestión de regiones EU/US y todas las herramientas de
-`mod center hd/` son trabajo original de **NovaPowers**.
+**El juego y sus datos NO se distribuyen.** Debes aportar los archivos de tu
+**copia legal** del juego (el `.xex` y los `data_*.afs`). Este proyecto sigue la
+convención "copyright-friendly" de la comunidad de recompilación estática
+(como `mstan/DragonBallZBuusFuryRecomp`): el código y el launcher se
+distribuyen, **el contenido del juego no**.
+
+- Ver `baserom.md` para la identidad exacta de los archivos (tamaño y checksums)
+  y cómo extraerlos de la ISO.
+- El código recompilado (`generated/`) se genera **localmente** a partir de tu
+  `.xex` y **no se sube** al repositorio.
+
+Proyecto no oficial, sin fines comerciales, de investigación y preservación.
+No está afiliado ni avalado por Bandai Namco, Shueisha, Toei Animation ni ningún
+titular de los derechos de Dragon Ball.
+
+---
+
+## Estructura de carpetas
+
+```
+DBZ-Budokai-1-HD-Collection/
+├── assets/                  # NO incluido. Tus archivos del juego (ver baserom.md)
+│   ├── default.xex          #   el ejecutable (USA y EU son idénticos)
+│   ├── us/                  #   datos región USA (data_us.afs, adx_us.afs...)
+│   └── eu/                  #   datos región EU/PAL (data_en.afs, adx_jp.afs...)
+├── src/                     # Código fuente del recompilador/launcher/mods
+│   ├── main.cpp             #   entrada, ventana, crash handler
+│   ├── region.cpp           #   montaje de assets us/eu
+│   ├── mods.cpp             #   sistema de mods (overlay AFS)
+│   ├── launcher/            #   UI del launcher + pipeline de modelos
+│   └── ingame/              #   menú in-game (F10)
+├── generated/               # NO incluido. Código generado del .xex (ver README ahí)
+├── mod center hd/           # Herramientas Python de modding (propias)
+│   ├── paths.py             #   rutas portables (sin rutas de usuario)
+│   ├── characters_db.py     #   catálogo maestro de personajes
+│   ├── swaps/               #   swaps B1→B1
+│   ├── conversores/         #   ports (B3→B1, PS2→HD)
+│   ├── analizadores/        #   RE de bins HD
+│   └── exportadores/        #   exportar OBJ/DDS/FBX
+├── mods/                    # Carpeta de mods de usuario (vacía)
+├── tools/                   # xbcompress.exe / xbdecompress.exe (portables)
+├── docs/                    # Documentación completa
+├── CMakeLists.txt           # Build (REXSDK_DIR o rexglue/ junto al proyecto)
+├── baserom.md               # Archivos del juego requeridos + cómo extraerlos
+└── LICENSE                  # MIT (NovaPowers)
+```
+
+---
+
+## Quick start (jugadores)
+
+1. **Descarga** el ZIP de Windows desde la pestaña **Releases** y extráelo.
+2. **Aporta los archivos del juego**: crea `assets/` junto a `dbz1.exe` y copia
+   el `.xex` y los `data_*.afs` de tu copia legal (ver `baserom.md` y "Instalar
+   el juego" abajo).
+3. **Ejecuta** `dbz1.exe`.
+4. En el launcher elige **Región** (USA / EU PAL), **Idioma**, **Vídeo** y
+   **Audio**, y pulsa **Play**.
+
+> El launcher recuerda la configuración. Si marcas "Skip launcher on boot",
+> los siguientes arranques van directos al juego.
+
+### Instalar el juego (aportar los archivos)
+
+El paquete de release **no trae** los archivos del juego (copyright). Tienes
+que extraerlos de tu **ISO legal** de *Dragon Ball Z: Budokai HD Collection*
+(Xbox 360):
+
+1. Extrae la ISO con una herramienta tipo `extract-xiso` (lee el sistema de
+   archivos FATX de Xbox 360).
+2. Copia a `assets/default.xex` el ejecutable del juego.
+3. Copia la carpeta de datos de tu región:
+   - **USA**: a `assets/us/` → `data_us.afs`, `data_sp.afs`, `data_fr.afs`,
+     `adx_us.afs`, `data_yah.afs`.
+   - **EU/PAL**: a `assets/eu/` → `data_en.afs`, `data_fr.afs`, `data_ge.afs`,
+     `data_it.afs`, `data_sp.afs`, `adx_jp.afs`, `data_yah.afs`.
+4. Verifica los archivos contra `baserom.md` (tamaños y checksums SHA-256).
+
+Solo necesitas el ejecutable y los archivos de datos, **no toda la ISO**.
 
 ---
 
 ## Regiones EU/US
 
-El juego es compatible con **ambas regiones** sin necesidad de un ejecutable
-distinto:
+- Los `.xex` USA y EU son **byte-idénticos** (misma región lógica; la región
+  está en los datos).
+- El launcher (pestaña *Video* → *Region*: `USA` / `EU (PAL)`) o el cvar
+  `dbz1_region` montan `assets/us` o `assets/eu` en `game:\us`.
+- El guardado es compartido entre regiones.
 
-- Los `.xex` europeo y americano son **byte-idénticos** (mismo binario) — la
-  región no está en el ejecutable, sino en los **datos**.
-- La región se elige en el launcher (pestaña *Video* → *Region*: `USA` o
-  `EU (PAL)`), o vía cvar `dbz1_region`.
-- Al cambiar de región se monta la carpeta de assets correspondiente
-  (`assets/us` o `assets/eu`) en `game:\us`:
-  - `assets/us/`: `data_us.afs`, `data_sp.afs`, `data_fr.afs`, `adx_us.afs` (voces EN)
-  - `assets/eu/`: `data_en.afs`, `data_fr.afs`, `data_ge.afs`, `data_it.afs`,
-    `data_sp.afs`, `adx_jp.afs` (voces JP)
-- El idioma se elige en la pestaña *Video* → *Language* (usa el `data_XX.afs`
-  correspondiente a la región).
-- El guardado es compartido EU/US (independiente de la región montada).
+---
+
+## Bugs conocidos (blackouts)
+
+Pantalla en negro (blackout) en determinadas secuencias renderizadas. Todos
+comparten la misma causa raíz: la animación/escena no se resuelve al
+render-target que se presenta (el personaje queda fuera del frustum de recorte
+con `clip_disable=0` → no rasteriza → negro opaco). En Xenia el mismo juego
+muestra estas escenas correctamente.
+
+| Bug | Estado |
+|---|---|
+| Blackout al entrar en combate (duelo, ~4.5s) | ⚠️ Diagnosticado, no bloquea |
+| Blackout en modo historia | ⚠️ Conocido |
+| Blackout en combates con presentación inicial | ⚠️ Conocido |
+| Blackout en ataques definitivos | ⚠️ Conocido |
+
+Los blackouts no bloquean la jugabilidad (solo una pausa en negro); el juego
+continúa correctamente después. Detalle técnico:
+`docs/re/INVESTIGACION_BLACKOUT_DUELO.md`.
+
+---
+
+## Mods
+
+Los mods viven en `mods/<nombre>/` (carpeta `mods/` se distribuye **vacía**) y
+reemplazan entradas del AFS por overlay, sin tocar los AFS originales:
+
+```
+mods/<mod>/us/data_sp.afs/2450/geom.bin   # modelo del slot 2450
+mods/<mod>/us/data_sp.afs/2451/tex.bin    # textura del slot 2451
+mods/<mod>/.disabled                      # si existe, el mod está OFF
+```
+
+El override se instala en **todos** los `data_*.afs` de personaje. Gestión
+visual en el launcher (pestaña Mods) o con `mod center hd/`. Guía:
+`docs/tutoriales/TUTORIAL_MODS.md`.
 
 ---
 
@@ -49,70 +150,40 @@ distinto:
 
 | Técnica | Estado |
 |---|---|
-| Swap nativo B1→B1 | ✅ **100% funcional** (validado: CHZ, Android 19) |
-| Port B3 HD→B1 HD | ✅ **100% funcional** (validado: Dr. Gero) |
-| Port PS2→HD | ⚠️ **VIABLE** — entra en combate sin crash, modelo deforme por decimación |
+| Swap nativo B1→B1 | ✅ **100% funcional** (CHZ, Android 19) |
+| Port B3 HD→B1 HD | ✅ **100% funcional** (Dr. Gero) |
+| Port PS2→HD | ⚠️ **VIABLE** — entra en combate, modelo deforme por decimación |
 | Port de movesets | ❌ No viable sin RE completa (#ACM) |
 | GameCube como fuente | ❌ Formato distinto (#ACO/#ACB) |
 
-Herramientas: `mod center hd\` (swaps, ports, analizadores, exportadores).
-Mods validados conservados: `mods\test_chz_ps2_texfix` (port PS2→HD),
-`mods\test_gero_b3_to_b1_v2` (port B3→B1).
+---
+
+## Building from source (desarrolladores)
+
+Requisitos: compilador C++23, CMake ≥ 3.25, y el [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
+(`REXSDK_DIR` o una carpeta `rexglue/` junto al proyecto).
+
+```
+git clone --recurse-submodules https://github.com/novapowers0/DBZ-Budokai-1-HD-Collection.git
+cd DBZ-Budokai-1-HD-Collection
+# 1) aporta tu .xex legal en assets/default.xex
+# 2) regenera el código derivado del xex
+cmake --build out/build/win-amd64-release --target dbz1_codegen
+# 3) compila
+cmake -S . -B out/build/win-amd64-release --preset win-amd64-release
+cmake --build out/build/win-amd64-release
+# 4) ejecuta
+out\build\win-amd64-release\dbz1.exe
+```
+
+> El código recompilado (`generated/`) se deriva de tu `.xex` y **nunca se
+> sube** (ver `generated/README.md` y `.gitignore`).
 
 ---
 
-## 🐞 Bugs conocidos (blackouts)
+## Rutas portables
 
-Pantalla en negro (blackout) en determinadas secuencias renderizadas por el
-recompilador. Todos tienen la misma causa raíz: la animación/escena no se
-resuelve al render-target que se presenta (el personaje queda fuera del frustum
-de recorte con `clip_disable=0`, por lo que no rasteriza píxeles → negro opaco).
-En Xenia el mismo juego muestra estas escenas correctamente.
-
-| Bug | Descripción | Estado |
-|---|---|---|
-| Blackout al entrar en combate (duelo) | ~240 frames (~4.5s) de pantalla negra al iniciar un combate; tras el blackout todo se renderiza bien | ⚠️ Diagnosticado, no bloquea |
-| Blackout en modo historia | Pantalla negra al entrar en las secuencias/presentaciones del modo historia | ⚠️ Conocido |
-| Blackout en combates con presentación inicial | Pantalla negra en los combates que empiezan con animación/presentación de entrada | ⚠️ Conocido |
-| Blackout en ataques definitivos | Pantalla negra durante los ataques definitivos (secuencias cinemáticas/animadas) | ⚠️ Conocido |
-
-**Detalle técnico**: `docs/re/INVESTIGACION_BLACKOUT_DUELO.md`. El fix
-candidato (forzar `clip_disable=true` en `GetHostViewportInfo`) NO se aplicó por
-riesgo de regresión en los recortes legítimos del juego. Los blackouts no
-bloquean la jugabilidad (solo son una pausa en negro); el juego continúa
-correctamente después.
-
----
-
-## Setup / Build
-
-Requisitos: un compilador C++23 y CMake ≥ 3.25, y el [ReXGlue SDK](https://github.com/rexglue/rexglue-sdk)
-(compilado o pre-built) disponible en el entorno (variable `REXSDK_DIR` o una
-carpeta `rexglue/` junto al proyecto).
-
-> **Nota sobre copyright**: este repositorio **no incluye los assets del
-> juego**. Debes extraer los AFS de tu copia legal de *Dragon Ball Z: Budokai
-> HD Collection* (Xbox 360) a la carpeta `assets/`. El código recompilado
-> (`generated/`) también se genera a partir de tu `.xex`; no se distribuye.
-
-1. Preparar los assets: extraer a `assets/` los `data_*.afs` del juego
-   (`data_us`, `data_sp`, `data_fr`, `data_en`, `data_ge`, `data_it`).
-   **No se requiere una ruta concreta**: todos comparten la misma numeración
-   de bins y cualquiera sirve para los swaps.
-2. Ejecutar el codegen (genera `generated/` a partir de `assets/default.xex`
-   + `dbz1_config.toml` + `dbz1_manifest.toml`):
-   ```
-   cmake -S . -B out/build/win-amd64-release --preset win-amd64-release
-   cmake --build out/build/win-amd64-release --target dbz1_codegen
-   cmake --build out/build/win-amd64-release
-   ```
-3. **Lanzar**: `out\build\win-amd64-release\dbz1.exe`
-   (NO usar el dbz1.exe de la raíz — es un build viejo).
-4. Logs: `out\build\win-amd64-release\logs\dbz1_NNN.log`.
-
-### Rutas portables
-
-- Las herramientas detectan los AFS desde `assets/` o desde la raíz que les
+- Las herramientas detectan los AFS desde `assets/` o desde la ruta que les
   pases en el launcher (pestaña Mods → Archivos fuente).
 - El proyecto B3 se localiza con la variable `DBZ3_ROOT` o como carpeta
   hermana `DBZ Budokai 3 HD Collection`.
@@ -121,31 +192,11 @@ carpeta `rexglue/` junto al proyecto).
 
 ---
 
-## Mods
-
-Los mods viven en `mods/<nombre>/` y reemplazan entradas del AFS por
-overlay (sin tocar los AFS originales):
-
-```
-mods/<mod>/us/data_sp.afs/2450/geom.bin   # modelo del slot 2450
-mods/<mod>/us/data_sp.afs/2451/tex.bin    # textura del slot 2451
-mods/<mod>/.disabled                      # si existe, el mod está OFF
-```
-
-> El override se instala en **todos** los `data_*.afs` de personaje, de modo
-> que funciona independientemente del AFS concreto que elija el juego según
-> región/idioma.
-
-Crear un mod: ver `docs/tutoriales/TUTORIAL_MODS.md`.
-
----
-
 ## Créditos
 
-- [ReXGlue](https://github.com/rexglue/rexglue-sdk) por las herramientas de
+- [ReXGlue](https://github.com/rexglue/rexglue-sdk) — herramientas de
   recompilación.
-- [WistfulHopes/DBZ1](https://github.com/WistfulHopes/DBZ1) como **referencia**
-  de la API del SDK (no usado como base).
-- Comunidad de modding de Budokai (herramientas y modelos de referencia).
-- **NovaPowers** — autor del sistema de mods, launcher y herramientas de
-  este proyecto.
+- [WistfulHopes/DBZ1](https://github.com/WistfulHopes/DBZ1) — referencia de la
+  API del SDK (no usado como base).
+- Comunidad de modding de Budokai — herramientas y modelos de referencia.
+- **NovaPowers** — autor del sistema de mods, launcher y herramientas.
