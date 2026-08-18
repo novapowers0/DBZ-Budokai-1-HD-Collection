@@ -3,6 +3,9 @@
 Carpeta de **mods de usuario**. Se distribuye **vacía** (los mods reemplazan
 archivos con copyright del juego, así que no se incluyen aquí).
 
+> 🚧 **Estado: WIP (en desarrollo).** El sistema de mods es experimental y puede
+> cambiar. Úsalo con copias de seguridad.
+
 ## Estructura de un mod
 
 Cada mod vive en una subcarpeta `mods/<nombre>/` y reemplaza entradas del AFS
@@ -21,6 +24,19 @@ mods/<mod>/
   región/idioma.
 - Un archivo `.disabled` dentro de la carpeta del mod lo desactiva
   (`mods/foo/.disabled`).
+
+## Consumo de espacio
+
+⚠️ **Los mods de modelos ocupan bastante espacio.** Cada mod es una **copia
+completa** del bin del personaje (geometría + texturas) comprimida y paddeada,
+replicada en **todos** los `data_*.afs` de personaje de la región:
+
+- Un modelo + su textura: **~5–30 MB por mod** (comprimido).
+- Al copiarse en varios AFS, el total se multiplica.
+- Con varios mods activos, **es fácil acumular cientos de MB** en `mods/`.
+
+Recomendación: activa solo los mods que uses y elimina los que ya no necesites
+(el launcher permite gestionarlos).
 
 ## Crear / instalar un mod
 

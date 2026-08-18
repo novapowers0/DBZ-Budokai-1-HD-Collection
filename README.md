@@ -131,8 +131,16 @@ continúa correctamente después. Detalle técnico:
 
 ## Mods
 
-Los mods viven en `mods/<nombre>/` (carpeta `mods/` se distribuye **vacía**) y
-reemplazan entradas del AFS por overlay, sin tocar los AFS originales:
+> 🚧 **Estado: WIP (Work In Progress / en desarrollo).** El sistema de mods
+> funciona, pero es experimental y puede cambiar. Úsalo con copias de seguridad.
+
+### Cómo funcionan
+
+Los mods **no modifican** los archivos originales del juego. En lugar de eso,
+el launcher aplica un **overlay**: reemplaza entradas concretas del AFS en
+memoria/arranque. Cada mod vive en una carpeta `mods/<nombre>/` (la carpeta
+`mods/` del repo se distribuye **vacía** — el contenido de los mods depende de
+datos con copyright del juego, así que no se incluyen):
 
 ```
 mods/<mod>/us/data_sp.afs/2450/geom.bin   # modelo del slot 2450
@@ -140,9 +148,34 @@ mods/<mod>/us/data_sp.afs/2451/tex.bin    # textura del slot 2451
 mods/<mod>/.disabled                      # si existe, el mod está OFF
 ```
 
-El override se instala en **todos** los `data_*.afs` de personaje. Gestión
-visual en el launcher (pestaña Mods) o con `mod center hd/`. Guía:
-`docs/tutoriales/TUTORIAL_MODS.md`.
+- `2450` = geometría (modelo), `2451` = texturas. Esos "slots" corresponden a
+  la numeración interna de bins del personaje.
+- El override se instala en **todos** los `data_*.afs` de personaje, de modo
+  que funciona independientemente del AFS concreto que elija el juego según
+  región/idioma.
+- Un mod se activa/desactiva desde el launcher (pestaña Mods) o creando/
+  borrando el archivo `.disabled`.
+
+### Consumo de espacio
+
+⚠️ **Los mods de modelos ocupan bastante espacio en disco.** Cada mod es una
+**copia completa** del bin del personaje (geometría + texturas) comprimida y
+paddeada, y se replica en **todos** los `data_*.afs` de personaje de la región
+para que funcione en cualquier idioma. En la práctica:
+
+- Un modelo + su textura suelen ocupar **~5–30 MB por mod** (comprimido).
+- Como el override se copia en varios AFS, el total puede multiplicarse.
+- Con varios mods activos a la vez, **es fácil acumular cientos de MB** de
+  overlays en `mods/`.
+
+Por eso se recomienda: activar solo los mods que vayas a usar, y eliminar los
+que ya no necesites (el launcher permite gestionarlos).
+
+### Crear / instalar
+
+Gestión visual en el launcher (pestaña Mods) o con las herramientas de
+`mod center hd/` (swaps B1→B1, port B3→B1, port PS2→HD). Guía completa:
+`docs/tutoriales/TUTORIAL_MODS.md` y `docs/tutoriales/FORMATO_MODS.md`.
 
 ---
 

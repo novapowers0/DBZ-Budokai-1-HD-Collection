@@ -34,6 +34,19 @@ de tu copia legal.
 > `extract-xiso` (lee el FATX de Xbox 360). Ver `baserom.md` del repositorio
 > para los tamaños y checksums SHA-256 de cada archivo.
 
+## Mods (WIP)
+
+> 🚧 **Estado: en desarrollo (WIP).** El sistema de mods es experimental y puede
+> cambiar. Úsalo con copias de seguridad.
+
+Los mods se gestionan desde la pestaña **Mods** del launcher. **No modifican**
+los archivos del juego: aplican un overlay sobre entradas concretas del AFS.
+Cada mod ocupa una **copia completa** del modelo (geometría + texturas)
+replicada en todos los `data_*.afs` de personaje, así que **puede consumir
+bastante espacio en disco** (~5–30 MB por mod, y con varios mods es fácil
+acumular cientos de MB). Activa solo los que uses y elimina los que ya no
+necesites. Detalle: `docs/tutoriales/TUTORIAL_MODS.md`.
+
 ## Bugs conocidos (blackouts)
 
 Pantalla en negro (blackout) en determinadas secuencias renderizadas
