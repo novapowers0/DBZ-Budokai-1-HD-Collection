@@ -200,6 +200,14 @@ tiene DOS consecuencias:
    45/47/49), NO Dr. Gero. El Dr. Gero es `X20G`/`20G` = bins 52/53
    (no jugable, historia). Identificar SIEMPRE por el label `XXX_BODY`
    (`docs/referencias/PERSONAJES_BINS.md`).
+6. **✅ SISTEMA AUTOMÁTICO DE COLORES DE PIEL (v0.4.0, 20/08)**: `scan_skin_tint.py`
+   detecta qué personajes B3 tienen piel gris (`skin_grey_majority`); `skin_colors.py`
+   es la tabla curada de colores; el port/pipeline usan `--tint-skin auto`.
+   **PENDIENTE DE VALIDAR EN JUEGO (20/08)**: confirmar que el color de piel de la
+   tabla sale correcto en runtime para los personajes con piel gris que se porten
+   (Buu gordo/Super/Kid y otros; Dabura ya validado en rojo). Antes de portar un
+   personaje con piel gris: (a) verificar su color real en el juego, (b) añadirlo
+   a `SKIN_COLORS` en `skin_colors.py` si no está, (c) portar y comprobar.
 
 ---
 
@@ -267,7 +275,12 @@ tiene DOS consecuencias:
 - Mods actuales (19-20/08): `port_XDBR_BODY_176_to_1766` (port Dabura→slot
   1768/1769/Piccolo traje por defecto) **activo con manifest v1.2** (port
   VÁLIDO + **fix piel 0x11BD + tintado de piel roja `--tint-skin 142,9,43`**,
-  lección 35). `port_XBRL_BODY_119_to_1387` (Broly→Nappa)
+  lección 35). ⚠️ **VALIDACIÓN PENDIENTE EN JUEGO (20/08)**: el sistema
+  automático de colores de piel (v0.4.0, lección 36) ya está implementado y
+  `--tint-skin auto` probado con Dabura (resuelve rojo `(142,8,41)`), pero
+  **falta validar en runtime el resto de personajes con piel gris** (Buu
+  gordo/Super/Kid, y cualquier otro que se porte): confirmar que el color de
+  piel de la tabla sale correcto. `port_XBRL_BODY_119_to_1387` (Broly→Nappa)
   **desactivado** — port INVIABLE: tex comprimido 30572 B > slot 1388 (18632 B)
   → truncación → crash (lección 26; el pipeline ahora valida y falla con error
   claro). `test_gero_b3_to_b1_v2` (port Gero B3→B1, **100% funcional**)
