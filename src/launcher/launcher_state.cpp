@@ -842,6 +842,7 @@ void LauncherDialog::DrawModPipelineTab() {
       ImGui::Text("Origen");
       ImGui::SameLine();
       ImGui::SetNextItemWidth(320);
+      ImGui::BeginDisabled(mod_pipeline_.IsRunning());
       if (ImGui::BeginCombo("##swap_src", pipeline_b1_src_idx_ >= 0
                                 ? b1[swap_src_idx[pipeline_b1_src_idx_]].DisplayName().c_str()
                                 : "Selecciona...")) {
@@ -854,11 +855,13 @@ void LauncherDialog::DrawModPipelineTab() {
         }
         ImGui::EndCombo();
       }
+      ImGui::EndDisabled();
       ImGui::SameLine();
       ImGui::TextDisabled("(%d modelos)", static_cast<int>(swap_src_idx.size()));
       ImGui::Text("Destino");
       ImGui::SameLine();
       ImGui::SetNextItemWidth(320);
+      ImGui::BeginDisabled(mod_pipeline_.IsRunning());
       if (ImGui::BeginCombo("##swap_dst", pipeline_swap_dst_idx_ >= 0
                                 ? b1[swap_dst_idx[pipeline_swap_dst_idx_]].DisplayName().c_str()
                                 : "Selecciona...")) {
@@ -871,6 +874,7 @@ void LauncherDialog::DrawModPipelineTab() {
         }
         ImGui::EndCombo();
       }
+      ImGui::EndDisabled();
       ImGui::SameLine();
       ImGui::TextDisabled("(%d modelos)", static_cast<int>(swap_dst_idx.size()));
       if (!dbz1::settings::AfsB1Path().empty() == false) {
@@ -901,9 +905,20 @@ void LauncherDialog::DrawModPipelineTab() {
   // --- Output / status ---
   ImGui::Separator();
   if (mod_pipeline_.IsRunning()) {
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Working...");
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f),
+                       "Working... el pipeline esta ejecutandose (comprimir + "
+                       "validar + instalar). Puede tardar ~1 min.");
+    ImGui::ProgressBar(-1.0f, ImVec2(-1.0f, 0.0f),
+                       "Procesando...");
+    ImGui::TextDisabled("No cambies la seleccion de modelos mientras corre.");
   } else if (!mod_pipeline_.Output().empty()) {
-    ImGui::TextDisabled("Done.");
+    const std::string& out = mod_pipeline_.Output();
+    const bool has_error =
+        out.find("ERROR") != std::string::npos ||
+        out.find("INCOMPATIBLE") != std::string::npos;
+    ImGui::TextColored(has_error ? ImVec4(1.0f, 0.3f, 0.3f, 1.0f)
+                                 : ImVec4(0.3f, 1.0f, 0.3f, 1.0f),
+                       has_error ? "ERROR: el mod no se instalo." : "Done.");
   }
   const std::string out = mod_pipeline_.Output();
   if (!out.empty()) {

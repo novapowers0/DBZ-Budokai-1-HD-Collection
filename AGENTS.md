@@ -552,14 +552,14 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     (`DBZ Budokai 3 HD Collection\github\src\launcher\mod_pipeline.cpp`).
     También escribe `pipeline_cmd.log` (junto al exe) para depurar. Recompilado
     (exe 19/08 ~17:00).
-30. **🔴 PIEL BLANCA EN PORTS = specular forzado en todo (19/08, VALIDADO)**:
-    el B1 nativo usa type2 **0x1BD (sin specular) para la piel** (cara, manos) y
-    **0x11BD (con specular) para la ropa/cuerpo** (verificado en Piccolo 1768:
-    partes 0x2/0x3/0x1 y manos = 0x1BD). `port_b3_to_b1_v2.py` forzaba TODO a
-    0x11BD → la piel salía blanca (quemada por el specular, ej. Dabura).
-    **Fix**: el port ahora lee el label del AWG (+0x40) y, si contiene `FACE` o
-    `HAND` (piel), deja type2 en 0x1BD (sin specular); el resto (BODY/ropa) se
-    sube a 0x11BD. Nota: el default de Piccolo es 1768/1769 (no 1766/1767).
+30. **✅ PIEL EN PORTS = 0x11BD (specular), igual que el resto (19/08 noche, REVISADO)**:
+    La lección anterior (piel → 0x1BD sin specular) era un **FALSO DIAGNÓSTICO**.
+    Verificado contra el NATIVO B1: **Piccolo 1768 y CHZ 352 usan 0x11BD (con
+    specular) en cara Y manos**. Al dejar la piel en 0x1BD, Buu rosa y Dabura
+    rojo salían **sin su color de piel** (solo la ropa/zapatos tenía color).
+    **Fix**: `port_b3_to_b1_v2.py` sube TODO (ropa y piel) a 0x11BD. Regla: un
+    port B3→B1 debe poner TODAS las mesh parts no-sombra en 0x11BD. Nota: el
+    default de Piccolo es 1768/1769 (no 1766/1767).
 31. **Persistencia de AFS (19/08, pendiente de validar)**: `dbz1_user.toml` se
     regeneró vacío tras un error de parseo ("expected hex digit, saw 's'"), por
     lo que los cvars AFS (`dbz1_afs_b1_path`/`dbz1_afs_b3_path`, namespace
@@ -567,6 +567,33 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     `SaveConfig` (rex::cvar) solo persiste los cvars modificados; revisar si el
     namespace `DBZ1/Dev` se incluye. Mientras tanto, el launcher muestra un
     AVISO si el AFS no está seleccionado (autodetección).
+32. **✅ MULTIPLES MODS ACTIVOS A LA VEZ (19/08, noche)**: el runtime
+    (`rexglue-sdk/afs.cpp`) ya recorre TODOS los mods de `mods/` sin `.disabled`
+    (`g_mod_dirs_cache` ordenado alfabéticamente; `AfsFindModOverride` toma el
+    PRIMER match por orden alfabético). Es decir, el runtime YA soporta varios
+    mods simultáneos; el único bloqueo era `manage_mods()` (swap_b1.py) que al
+    instalar un port/swap DESACTIVABA todos los demás. **Fix**: `manage_mods()`
+    ahora solo asegura que el mod recién instalado quede activo y NO toca el
+    resto — el usuario activa/desactiva cada mod desde la pestaña Mods del
+    launcher (checkbox `SetModEnabled`). ⚠️ Colisión: si dos mods activos
+    escriben el MISMO slot (ej. dos ports a Piccolo 1768), gana el que va
+    primero alfabéticamente (o el de menor ruta). Evitar dos mods en el mismo
+    slot; usar slots distintos para coexistencias limpias.
+33. **Nombres de mod legibles + detector de incompatibilidad (19/08, noche)**:
+    (a) el C++ (`ModPipeline::SwapB1ToB1`) ahora genera el nombre del mod con el
+    NOMBRE legible del personaje (`SanitizeModName`) en vez del label corrupto
+    (ej. `swap_Maestro_Roshi_on_Nappa`, no `swap_KAM_NULL_1531_on_1387`).
+    (b) `swap_b1.install()` comprime y valida en un workdir TEMPORAL y SOLO crea
+    `mods/<mod>/` si todo cabe y el round-trip es OK — evita mods 'fantasma'
+    que solo tenían `.work` (como `swap_KAM_NULL_1531_on_1387`). Si nada cabe,
+    lanza "INCOMPATIBLE: el comprimido no cabe en ningun slot destino" y no crea
+    nada.
+34. **Barra de progreso y feedback del pipeline (19/08, noche)**: la pestaña
+    Mods → Model pipeline ahora muestra una barra de progreso indeterminada
+    (`ImGui::ProgressBar(-1.f)`) + texto "Working..." más claro mientras corre,
+    deshabilita los combos Origen/Destino durante la ejecución, y al terminar
+    muestra "Done." en verde o "ERROR: el mod no se instalo" en rojo según si el
+    output contiene ERROR/INCOMPATIBLE.
 
 ---
 

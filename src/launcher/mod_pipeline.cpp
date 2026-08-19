@@ -65,6 +65,21 @@ int ParseIntField(const std::string& s) {
   return s.empty() ? 0 : std::atoi(s.c_str());
 }
 
+// Sanitiza un nombre para usarlo como nombre de carpeta de mod: solo
+// [A-Za-z0-9_-]; espacios/acentos se convierten o eliminan.
+std::string SanitizeModName(const std::string& s) {
+  std::string out;
+  for (unsigned char c : s) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '_' || c == '-') {
+      out += (char)c;
+    } else if (c == ' ') {
+      out += '_';
+    }
+  }
+  return out;
+}
+
 }  // namespace
 
 ModPipeline::~ModPipeline() {
@@ -263,9 +278,13 @@ void ModPipeline::SwapB1ToB1(const ModChar& b1_src, const ModChar& b1_dst) {
     AppendOutput("ERROR: el personaje origen no tiene slot geom asignado.\n");
     return;
   }
-  const std::string mod = "swap_" + b1_src.label + "_" +
-                          std::to_string(b1_src.geom) + "_on_" +
-                          std::to_string(b1_dst.geom);
+  // Nombre legible del mod (solo el nombre, sin "Traje"/"Transformación"):
+  // swap_<origen>_on_<destino>. Evita labels corruptos como "KAM_NULL".
+  const std::string src_tag =
+      SanitizeModName(b1_src.name.empty() ? b1_src.label : b1_src.name);
+  const std::string dst_tag =
+      SanitizeModName(b1_dst.name.empty() ? b1_dst.label : b1_dst.name);
+  const std::string mod = "swap_" + src_tag + "_on_" + dst_tag;
   auto args = SwapArgs(b1_src, b1_dst, mod);
   RunAsync(args);
 }

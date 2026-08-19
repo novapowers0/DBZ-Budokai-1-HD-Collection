@@ -146,13 +146,8 @@ def main():
         if awg + 0x40 > len(awo):
             continue
 
-        # Label del AWG (campo nombre en +0x40). Se usa para decidir el shader
-        # B1: las partes de PIEL (cara/manos) NO deben llevar specular (type2
-        # 0x1BD), mientras que la ropa/cuerpo si (0x11BD). Forzar 0x11BD en
-        # todo quema la piel (sale blanca, verificado en Dabura/Piccolo).
+        # Label del AWG (campo nombre en +0x40).
         awg_label = awo[awg + 0x40: awg + 0x50].split(b'\x00')[0].decode('latin1', 'ignore')
-        is_skin_awg = ('FACE' in awg_label.upper() or
-                       'HAND' in awg_label.upper())
 
         # 1. Flag +0x0C -> 0x2
         if u32r(awo, awg + 0x0C) != 0x2:
@@ -186,15 +181,15 @@ def main():
                 awo[pos:pos + 16] = ESCALA_B1
                 awo[pos + 16:pos + 32] = W_TORSO if i == 0 else W_EXT
                 tot_mat += 1
-                # shader B1: specular (0x11BD) para ropa/cuerpo, sin specular
-                # (0x1BD) para la PIEL (cara/manos) para no quemarla en blanco.
+                # shader B1: TODO (ropa Y piel) -> 0x11BD (con specular).
+                # Verificado 19/08 (noche): el NATIVO B1 usa 0x11BD tambien en
+                # cara/manos (Piccolo 1768 y CHZ 352 -> 0x11BD). La leccion 30
+                # (piel -> 0x1BD sin specular) era un FALSO DIAGNOSTICO: dejaba
+                # la piel SIN color (Buu rosa/Dabura rojo salian descoloridos,
+                # solo la ropa tenia color). Con 0x11BD en todo el color vuelve.
                 if u32r(awo, pos + 0x38) == 0x1BD and u32r(awo, pos + 0x3C) == 0x1BD:
-                    if is_skin_awg:
-                        # 0x1BD (sin specular) -> ya esta puesto, no subir
-                        pass
-                    else:
-                        struct.pack_into('>I', awo, pos + 0x38, 0x11BD)
-                        struct.pack_into('>I', awo, pos + 0x3C, 0x11BD)
+                    struct.pack_into('>I', awo, pos + 0x38, 0x11BD)
+                    struct.pack_into('>I', awo, pos + 0x3C, 0x11BD)
             # grp: opcional flatten
             if do_flatten:
                 g = u32r(awo, pos + 0x30)

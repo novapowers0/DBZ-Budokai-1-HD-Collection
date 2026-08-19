@@ -333,24 +333,21 @@ def resolve_origen(catalog, origen, workdir, dec, afs_path):
 # Instalacion
 # ---------------------------------------------------------------------------
 def manage_mods(mods_root, keep_name):
-    """Desactiva todos los mods menos `keep_name` (archivo .disabled interno)."""
+    """Asegura que el mod recien instalado quede ACTIVO (sin .disabled).
+
+    El runtime (rexglue-sdk/afs.cpp) ya carga TODOS los mods de `mods/` que no
+    tengan marcador `.disabled`; soporta multiples mods activos a la vez (cada
+    uno con sus overrides en slots distintos). Por eso NO desactivamos los
+    demas al instalar uno nuevo: el usuario decide que mods quiere activos
+    desde la pestaña Mods del launcher. (Antes se desactivaba todo menos el
+    nuevo; ya no, para permitir varios mods simultaneos.)
+    """
     if not os.path.isdir(mods_root):
         return
-    for m in sorted(os.listdir(mods_root)):
-        d = os.path.join(mods_root, m)
-        if not os.path.isdir(d) or m == keep_name:
-            continue
-        marker = os.path.join(d, ".disabled")
-        if not os.path.exists(marker):
-            try:
-                open(marker, "w").write("disabled\n")
-                print("Desactivado: %s" % m)
-            except OSError:
-                pass
-    # asegurar que el mod a activar no tenga marcador
     keep = os.path.join(mods_root, keep_name, ".disabled")
     if os.path.exists(keep):
         os.remove(keep)
+        print("Activado: %s" % keep_name)
 
 
 def slot_pads(afs_path, geom_slot, tex_slot, pads=(PAD_GEOM, PAD_TEX)):
@@ -421,11 +418,15 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
 
     `dest_slots` es un par (geom, tex) usado como referencia (p. ej. para el
     manifest). Si se da `dest_pairs` (lista de pares (geom, tex)), el override
-    se instala en TODOS los pares: un port/swap a un personaje debe cubrir
-    TODOS sus trajes porque el juego carga el traje por defecto en un par que
-    NO siempre es el primero del bloque (Piccolo usa 1768/1769, no 1766/1767;
-    ver sesión 19/08). Los pares cuyo slot no admita el comprimido se omiten
-    con aviso; si ninguno cabe, se aborta con error claro.
+    se instala en TODOS los pares (todos los trajes del personaje destino).
+
+    INCOMPATIBILIDAD (leccion 26): el runtime sirve el override leyendo
+    `entry_size` bytes de la entrada original. Si el bin COMPRIMIDO supera ese
+    tamaño, el stream LZX se trunca -> descompresion corrupta -> crash
+    0xC0000005. Por eso esta funcion PRIMERO comprime y valida en una carpeta
+    temporal; si ningun slot destino admite el comprimido, LANZA error y NO
+    crea la carpeta del mod (evita mods 'fantasma' con solo .work). Solo al
+    pasar la validacion se crea mods/<mod>/ y se copian los overrides.
 
     Si `afs_path` se da, el padding se ajusta al tamanio REAL de los slots
     destino (crucial cuando el slot no es el de Tenshinhan: p. ej. Piccolo
@@ -436,7 +437,11 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
         dest_pairs = [(geom_slot, tex_slot)]
     data_afs_names = ("data_sp.afs", "data_us.afs", "data_fr.afs",
                       "data_en.afs", "data_ge.afs", "data_it.afs")
-    work = os.path.join(mods_root, mod_name, "us", ".work")
+
+    # Workdir TEMPORAL para comprimir y validar; NO se crea la carpeta del mod
+    # hasta que todo el contenido quepa y el round-trip sea OK.
+    work = os.path.join(os.environ.get('TEMP', '/tmp'), 'opencode',
+                        'install_%s' % mod_name.replace(os.sep, '_'))
     os.makedirs(work, exist_ok=True)
     g_raw = os.path.join(work, "geom_raw.bin")
     t_raw = os.path.join(work, "tex_raw.bin")
@@ -448,12 +453,7 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     t_sz = lzx_compress(comp, t_raw, t_lzx)
     print("Comprimido: geom %d -> %d B | tex %d -> %d B" % (len(geom_data), g_sz, len(tex_data), t_sz))
 
-    # El runtime sirve el override leyendo `entry_size` bytes de la entrada
-    # original. Si el bin COMPRIMIDO supera ese tamaño, el stream LZX se trunca
-    # -> descompresion corrupta -> crash 0xC0000005 al cargar el personaje.
-    # El padding a un tamaño mayor NO ayuda (el juego solo lee entry_size).
-    # Comprobar antes de instalar y fallar con error claro en vez de dejar un
-    # mod que crashea (leccion 24 / 2026-08-19).
+    # Detector de incompatibilidades: que slots destino admiten el comprimido.
     fitted = []
     for pair in dest_pairs:
         pg, pt = pair
@@ -470,10 +470,11 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
             fitted.append(pair)
     if not fitted:
         raise RuntimeError(
-            "Ningun slot destino admite el comprimido (geom %d B / tex %d B). "
-            "El runtime lee entry_size bytes del override; un stream comprimido "
-            "mayor se trunca y crashea (0xC0000005). Elige un personaje destino "
-            "con slots mas grandes o reduce las texturas." % (g_sz, t_sz))
+            "INCOMPATIBLE: el comprimido no cabe en ningun slot destino "
+            "(geom %d B / tex %d B). El runtime lee entry_size bytes del "
+            "override; un stream comprimido mayor se trunca y crashea "
+            "(0xC0000005). Elige un personaje destino con slots mas grandes o "
+            "reduce las texturas." % (g_sz, t_sz))
 
     # round-trip verificado una sola vez con el mayor padding de los pares que
     # caben (los ceros finales no afectan a la descompresion LZX).
@@ -496,7 +497,18 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     if not (ok_g and ok_t):
         raise RuntimeError("round-trip fallo, no se instala")
 
-    # instalar en todos los pares y todos los data_*.afs de personaje
+    # TODO valido: crear la carpeta del mod y copiar los overrides.
+    mod_dir = os.path.join(mods_root, mod_name, "us", ".work")
+    os.makedirs(mod_dir, exist_ok=True)
+    shutil.copy(g_raw, os.path.join(mod_dir, "geom_raw.bin"))
+    shutil.copy(t_raw, os.path.join(mod_dir, "tex_raw.bin"))
+    shutil.copy(g_lzx, os.path.join(mod_dir, "geom.lzx"))
+    shutil.copy(t_lzx, os.path.join(mod_dir, "tex.lzx"))
+    shutil.copy(g_pad, os.path.join(mod_dir, "geom_pad.bin"))
+    shutil.copy(t_pad, os.path.join(mod_dir, "tex_pad.bin"))
+    shutil.copy(g_rt, os.path.join(mod_dir, "geom_rt.bin"))
+    shutil.copy(t_rt, os.path.join(mod_dir, "tex_rt.bin"))
+
     installed = []
     for afs_name in data_afs_names:
         out_dir = os.path.join(mods_root, mod_name, "us", afs_name)
