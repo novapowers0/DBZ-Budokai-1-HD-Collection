@@ -36,6 +36,10 @@ def main():
                          'en TODOS (todos los trajes del personaje)')
     ap.add_argument('--flatten', action='store_true', help='aplanar grp (opcional)')
     ap.add_argument('--remap', default=None, help='ref B1 para remap de bones (opcional)')
+    ap.add_argument('--tint-skin', default=None,
+                    help='teñir la piel (r,g,b) al color dado, p. ej. 142,9,43 '
+                         'para la piel roja de Dabura/Buu (la fuente B3 la modela '
+                         'con material sobre textura gris)')
     ap.add_argument('--mods-root', default=None, help='raiz de mods (default: <repo>/mods)')
     ap.add_argument('--work', default=None, help='carpeta de trabajo temporal')
     ap.add_argument('--afs', default=None,
@@ -70,6 +74,8 @@ def main():
         cmd.append('--flatten')
     if args.remap:
         cmd += ['--remap', args.remap]
+    if args.tint_skin:
+        cmd += ['--tint-skin', args.tint_skin]
     print('>>> Port B3->B1...')
     r = subprocess.run(cmd, capture_output=True)
     print(r.stdout.decode('utf-8', 'ignore'))

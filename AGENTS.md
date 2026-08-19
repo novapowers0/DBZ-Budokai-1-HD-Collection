@@ -7,6 +7,11 @@
 > **✅ 4.2 Dabura→Piccolo válido (reactivado + manifest)**.
 > **✅ 4.3 Broly→Nappa = lección 26: tex comprimido 30572 B > slot 1388 (18632 B)
 > → truncación LZX → 0xC0000005; pipeline ahora valida y falla claro**.
+> 2026-08-20. **✅ 5.x Fix piel sin color en ports (Dabura/Buu)**: la causa era
+> la piel roja del B3 modelada con MATERIAL (+0x34==5) sobre textura GRIS, no
+> con textura roja → el B1 la mostraba descolorida. Nueva opción `--tint-skin`
+> en el port que tiñe los bloques DXT3 grises de piel al color objetivo
+> (lección 35). Aplicado a Dabura (`--tint-skin 142,9,43`, manifest v1.2).
 > 2026-08-17. Consolidado v10-v12 + **model swaps B1→B1 100% funcionales** +
 > **✅ PORT B3 HD→B1 HD 100% FUNCIONAL (Gero, validado en runtime)** +
 > **moveset descartado (lección 13: #ACM no sustituible/generable sin RE)**.
@@ -255,9 +260,10 @@ tiene DOS consecuencias:
   (`mods/foo/.disabled`). NO renombrar a `foo.disabled`. `src/mods.cpp` devuelve
   `ModInfo{name,enabled}` y normaliza; `rexglue-sdk/afs.cpp` no los carga (la DLL
   precompilada `rexruntime.dll` no incluye el cambio de afs.cpp todavía).
-- Mods actuales (19/08): `port_XDBR_BODY_176_to_1766` (port Dabura→slot
-  1766/1767/Piccolo) **activo con manifest** (port VÁLIDO: geom comp 73204 ≤
-  160500, tex comp 23470 ≤ 33702). `port_XBRL_BODY_119_to_1387` (Broly→Nappa)
+- Mods actuales (19-20/08): `port_XDBR_BODY_176_to_1766` (port Dabura→slot
+  1768/1769/Piccolo traje por defecto) **activo con manifest v1.2** (port
+  VÁLIDO + **fix piel 0x11BD + tintado de piel roja `--tint-skin 142,9,43`**,
+  lección 35). `port_XBRL_BODY_119_to_1387` (Broly→Nappa)
   **desactivado** — port INVIABLE: tex comprimido 30572 B > slot 1388 (18632 B)
   → truncación → crash (lección 26; el pipeline ahora valida y falla con error
   claro). `test_gero_b3_to_b1_v2` (port Gero B3→B1, **100% funcional**)
@@ -594,6 +600,28 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     deshabilita los combos Origen/Destino durante la ejecución, y al terminar
     muestra "Done." en verde o "ERROR: el mod no se instalo" en rojo según si el
     output contiene ERROR/INCOMPATIBLE.
+35. **Piel sin color en ports = textura de piel GRIS en la fuente B3 (20/08)**:
+    la causa NO es el mapeo grp→textura (que es consistente: grp del B3 usado
+    como índice directo en el B1, y el AZT está en ese orden). Para Dabura
+    (bin 176 B3) y Buu, el B3 modela la piel roja con un **material sobre una
+    textura base GRIS** (no con una textura roja): las texturas de piel
+    (tex_10/13/14, 90-95% grises, promedio ~(160,160,158)) no tienen el tono
+    rojo; la única textura roja del AZT es tex_9 (64x64, ~(142,9,43)) que no
+    usa ningún mesh part. El mesh part B3 tiene DOS índices [+0x30,+0x34];
+    +0x34=5 marca las partes de PIEL (manos/cara/cuerpo desnudo), +0x34=1/3/6
+    la ropa, 0xFFFFFFFF la sombra. El B1 no tiene material de tintado → la
+    piel sale del color gris de su textura (y el fix 0x11BD de la lección 30
+    no la colorea porque no hay color que revelar).
+    **Fix**: opción `--tint-skin r,g,b` en `port_b3_to_b1_v2.py` /
+    `install_b3_to_b1.py` que tiñe los bloques DXT3 grises (r~g~b) de las
+    texturas usadas por partes FACE/HAND o material +0x34==5, al color
+    objetivo preservando la luminancia (sombreado). Solo toca bloques grises
+    (piel); los de color (ojos/pelo/ropa) se conservan. Aplicado a Dabura con
+    `--tint-skin 142,9,43` (color de piel roja de tex_9): las texturas 4/10/
+    13/14 pasaron de grises a rojas (60-65%). Mod regenerado e instalado en
+    1768/1769 (todos los data_*.afs), manifest v1.2. El tintado es un hack
+    por-personaje (cambia el color de la textura fuente); para un port fiel
+    con piel real hace falta un modelo fuente que la tenga.
 
 ---
 

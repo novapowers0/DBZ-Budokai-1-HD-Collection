@@ -22,9 +22,13 @@ Conversiones necesarias (todas validadas):
      El runtime B1 espera DXT3 con alpha opaco (verificado en X19G nativo).
   6. (opcional --flatten) reindexar grp +0x30 a grupos secuenciales
   7. (opcional --remap <ref>) re-mapear bones de vertices (+16) y arms por labels
+  8. (opcional --tint-skin r,g,b) teñir la piel (texturas grises de partes
+     FACE/HAND o material +0x34==5) al color dado, preservando el sombreado.
+     Necesario para personajes cuya piel roja en el B3 es un material sobre
+     textura gris (Dabura, Buu) y sale descolorida en el B1.
 
 Uso:
-  python port_b3_to_b1_v2.py <awo_b3.bin> <azt_b3.bin> <out.awo> <out_azt.bin> [--flatten] [--remap <awo_b1_ref.bin>]
+  python port_b3_to_b1_v2.py <awo_b3.bin> <azt_b3.bin> <out.awo> <out_azt.bin> [--flatten] [--remap <awo_b1_ref.bin>] [--tint-skin r,g,b]
 
 Salidas:
   <out.awo>       AWO convertido (geom listo para slot 2450)
@@ -34,6 +38,7 @@ import struct
 import sys
 
 U32 = struct.Struct('>I')
+U16 = struct.Struct('<H')
 
 ESCALA_B1 = struct.pack('>4f', 128.0, 128.0, 128.0, 128.0)
 W_TORSO = struct.pack('>4f', 0.85, 0.80, 0.70, 1.0)
@@ -86,13 +91,96 @@ def fix_azt_alpha(azt):
     return bytes(b), n
 
 
+def _c565(v):
+    r = ((v >> 11) & 0x1F) << 3
+    g = ((v >> 5) & 0x3F) << 2
+    b = (v & 0x1F) << 3
+    return (r | (r >> 5), g | (g >> 6), b | (b >> 5))
+
+
+def _to565(rgb):
+    r, g, b = rgb
+    return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+
+
+def tint_skin_textures(azt, target_rgb, tex_indices, thresh=40):
+    """Tiñe las texturas DXT3 de piel (grises) al color objetivo.
+
+    Hallazgo (20/08): algunos personajes del B3 (Dabura, Buu) tienen la piel
+    roja modelada con un MATERIAL (mesh part +0x34) sobre una textura base
+    GRIS, no con una textura roja. Al portar a B1 (que no tiene material de
+    tintado) la piel sale del color gris de su textura. Este fix tiñe los
+    bloques DXT3 grises (r~g~b) de esas texturas al color objetivo,
+    preservando la luminancia (sombreado). Solo afecta a los bloques que ya
+    son grises (piel); los bloques con color (ojos/pelo/ropa) se conservan.
+    """
+    b = bytearray(azt)
+    count = 0
+    # localizar cada textura DDS consecutiva
+    dds_offsets = []
+    idx = 0
+    while True:
+        i = b.find(b'DDS ', idx)
+        if i == -1:
+            break
+        nxt = b.find(b'DDS ', i + 4)
+        end = nxt if nxt != -1 else len(b)
+        dds_offsets.append((i, end))
+        idx = i + 4
+    for ti in tex_indices:
+        if ti >= len(dds_offsets):
+            continue
+        start, end = dds_offsets[ti]
+        if end - start < 128:
+            continue
+        fourcc = bytes(b[start + 84:start + 88])
+        w = struct.unpack_from('<I', b, start + 16)[0]
+        h = struct.unpack_from('<I', b, start + 12)[0]
+        if fourcc != b'DXT3':
+            continue
+        data_off = start + 128
+        n_blk = (w // 4) * (h // 4)
+        for blk in range(n_blk):
+            pos = data_off + blk * 16
+            v0 = U16.unpack_from(b, pos + 8)[0]
+            v1 = U16.unpack_from(b, pos + 10)[0]
+            r0, g0, b0 = _c565(v0)
+            r1, g1, b1 = _c565(v1)
+
+            def is_grey(c):
+                return abs(c[0] - c[1]) < thresh and abs(c[1] - c[2]) < thresh
+
+            def tint(c):
+                r, g, bb = c
+                if is_grey(c) and max(c) > 30:
+                    L = max(c) / 255.0
+                    return (int(target_rgb[0] * L), int(target_rgb[1] * L), int(target_rgb[2] * L))
+                return c
+
+            nr0, ng0, nb0 = tint((r0, g0, b0))
+            nr1, ng1, nb1 = tint((r1, g1, b1))
+            U16.pack_into(b, pos + 8, _to565((nr0, ng0, nb0)))
+            U16.pack_into(b, pos + 10, _to565((nr1, ng1, nb1)))
+            count += 1
+    return bytes(b), count
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 4:
-        print('Uso: port_b3_to_b1_v2.py <awo_b3.bin> <azt_b3.bin> <out.awo> <out_azt.bin> [--flatten] [--remap <awo_b1_ref.bin>]')
+        print('Uso: port_b3_to_b1_v2.py <awo_b3.bin> <azt_b3.bin> <out.awo> <out_azt.bin> [--flatten] [--remap <awo_b1_ref.bin>] [--tint-skin r,g,b]')
         return
     do_flatten = '--flatten' in args
     do_remap = '--remap' in args
+    tint_rgb = None
+    if '--tint-skin' in args:
+        ti = args.index('--tint-skin')
+        if ti + 1 < len(args):
+            try:
+                tint_rgb = tuple(int(x) for x in args[ti + 1].split(','))
+                args = args[:ti] + args[ti + 2:]
+            except ValueError:
+                tint_rgb = None
     remap_ref = None
     if do_remap:
         ri = args.index('--remap')
@@ -141,6 +229,7 @@ def main():
         print('Flatten: %d bones -> %d grupos secuenciales' % (len(bone_to_grp), next_grp))
 
     tot_flag = tot_type = tot_grp = tot_u34 = tot_vert = tot_arm = tot_mat = 0
+    skin_grps = set()
     for i in range(amg_am):
         awg = u32r(awo, amg_tbl + i * 4)
         if awg + 0x40 > len(awo):
@@ -148,6 +237,7 @@ def main():
 
         # Label del AWG (campo nombre en +0x40).
         awg_label = awo[awg + 0x40: awg + 0x50].split(b'\x00')[0].decode('latin1', 'ignore')
+        is_skin_awg = ('FACE' in awg_label or 'HAND' in awg_label)
 
         # 1. Flag +0x0C -> 0x2
         if u32r(awo, awg + 0x0C) != 0x2:
@@ -163,6 +253,12 @@ def main():
             t38 = u32r(awo, pos + 0x38)
             t3c = u32r(awo, pos + 0x3C)
             shadow = (t38 == 0x1B4 or t3c == 0x1B4)
+            # detectar partes de piel (material +0x34==5 = piel en el B3)
+            # para --tint-skin: recolectar su grp (+0x30) = indice de textura
+            if tint_rgb and not shadow:
+                mat34 = u32r(awo, pos + 0x34)
+                if is_skin_awg or mat34 == 5:
+                    skin_grps.add(u32r(awo, pos + 0x30))
             # type2 -> B1
             if t38 == 0x1B5:
                 struct.pack_into('>I', awo, pos + 0x38, 0x1BD)
@@ -234,6 +330,10 @@ def main():
 
     # 4. AZT: alpha DXT3 -> 0xFF
     azt_fixed, n_alpha = fix_azt_alpha(azt)
+    if tint_rgb:
+        azt_fixed, n_tint = tint_skin_textures(azt_fixed, tint_rgb, sorted(skin_grps))
+        print('Tint-skin: color %s, %d texturas (grps %s), %d bloques tintados' % (
+            tint_rgb, len(skin_grps), sorted(skin_grps), n_tint))
     open(out_azt, 'wb').write(azt_fixed)
 
     print('TOTAL: flag=%d type2=%d mat=%d grp=%d u34=%d verts=%d arms=%d. Guardado %s (%d bytes)' % (
