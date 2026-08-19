@@ -422,6 +422,10 @@ def cmd_port(args):
            os.path.join(CONV, 'install_b3_to_b1.py'),
            awo_b3, azt_b3, '--mod', mod,
            '--dest', str(args.dest), '--tex', str(args.tex)]
+    # tintado automatico de piel (resuelve el color por personaje; no tintar
+    # si la textura ya tiene el color de piel -> se detecta en el port)
+    if not getattr(args, 'no_tint', False):
+        cmd += ['--tint-skin', 'auto']
     b1_afs = default_b1_afs()
     if b1_afs:
         cmd += ['--afs', b1_afs]
@@ -464,6 +468,8 @@ def main():
     p_port.add_argument('--b3-afs', dest='b3_afs', default=None)
     p_port.add_argument('--work', default=None)
     p_port.add_argument('--dry', action='store_true')
+    p_port.add_argument('--no-tint', action='store_true',
+                        help='desactiva el tintado automatico de piel')
 
     args = ap.parse_args()
     if args.cmd == 'catalog':

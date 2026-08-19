@@ -12,6 +12,10 @@
 > con textura roja → el B1 la mostraba descolorida. Nueva opción `--tint-skin`
 > en el port que tiñe los bloques DXT3 grises de piel al color objetivo
 > (lección 35). Aplicado a Dabura (`--tint-skin 142,9,43`, manifest v1.2).
+> **Sistema automático de colores (lección 36)**: `scan_skin_tint.py` detecta
+> que personajes tienen piel gris (`skin_grey_majority`); `skin_colors.py` es
+> la tabla curada de colores; el port/pipeline usan `--tint-skin auto`
+> (resuelve el color desde el label). Cell Jr. = azul/negro, NO verde.
 > 2026-08-17. Consolidado v10-v12 + **model swaps B1→B1 100% funcionales** +
 > **✅ PORT B3 HD→B1 HD 100% FUNCIONAL (Gero, validado en runtime)** +
 > **moveset descartado (lección 13: #ACM no sustituible/generable sin RE)**.
@@ -313,6 +317,8 @@ tiene DOS consecuencias:
 | `conversores/port_b3_to_b1_v4.py` | v2 + **retargeting por matrices bind** (transforma coords de bones huérfanos → evita estiramiento). `port_b3_to_b1_v4.py <awo_b3> <azt_b3> <out.awo> <out_azt.bin>` |
 | `conversores/amo0_to_awo.py` | **Port PS2→HD REESCRITO con enfoque B3 (lecciones 22-24)**: triángulos reales FaceType + decimar por (bone,voxel) a buffers del template + rellenar EN POSICIÓN (delta=0) + descriptores A/B + arms intactos. **VALIDADO: entra en combate sin crash** con la textura del MISMO par (CHZ x_351). `amo0_to_awo.py <ps2.amb> <template.awo> <out>` |
 | `analizadores/analyze_submesh*.py` | RE de los descriptores de submesh (rangos A/B, flags, mesh-ref) |
+| `analizadores/scan_skin_tint.py` | **Escaneo de piel gris en el catalogo B3 (leccion 36)**: detecta que personajes tienen la piel modelada como material sobre textura gris (`skin_grey_majority`), los que necesitan `--tint-skin`. `--all` recorre todo el catalogo, `--save <json>` guarda el reporte |
+| `skin_colors.py` | **Tabla curada de colores de piel por codigo de personaje B3** (leccion 36): `SKIN_COLORS` (clave sin X; DBR=rojo, BUL/BUM/BUS=rosa, CLJ=azul, PIC/CEL=verde...) + `SKIN_DEFAULT` caucasico. `skin_color_for(code)`, `skin_code_from_label(label)` |
 | `conversores/obj_to_awg_hd.py` | v8 validado (mismo personaje) |
 | `conversores/build_awo_from_json.py` | retargeting inv_rigid (B3) |
 | `conversores/retarget_hd.py` | `retarget_local(bind_src,bind_dst,local_src)` + align_joint |
@@ -622,6 +628,28 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     1768/1769 (todos los data_*.afs), manifest v1.2. El tintado es un hack
     por-personaje (cambia el color de la textura fuente); para un port fiel
     con piel real hace falta un modelo fuente que la tenga.
+36. **Sistema automatico de colores de piel (20/08)**: el color de piel de un
+    personaje B3 cuya textura es GRIS (material puro) NO se puede inferir del
+    AZT de forma fiable (la heuristica captura la ropa, no la piel). Por eso:
+    (a) `analizadores/scan_skin_tint.py --all` escanea TODO el catalogo B3 y
+    detecta que personajes tienen la piel gris (metrica `skin_grey_majority`,
+    ponderada por tamano de textura; los que necesitan tintado). Marcó
+    **la mayoria de personajes** (Saiyans, androides, Buu, Dabura, Freeza...)
+    como grises; Piccolo/Cell/Gero/Cell Jr./Uub/Kibito/etc. ya tienen el color
+    de piel en su textura (no necesitan). (b) `mod center hd/skin_colors.py`
+    es la **tabla curada de colores de piel por codigo** de personaje
+    (`SKIN_COLORS`, clave sin 'X'; ej. `DBR=(142,8,41)`, `BUL/BUM/BUS=(247,150,165)`
+    rosa Buu, `CLJ=(72,167,201)` azul, `PIC/CEL=(127,177,63)` verde) + default
+    caucasico `SKIN_DEFAULT=(235,195,165)` para no listados.
+    (c) `--tint-skin auto` en el port resuelve el color desde el label del AWO
+    (ej. XDBR_BODY→DBR→rojo) y lo aplica; el pipeline (`launcher_mod_pipeline.py
+    port`) ya lo usa por defecto (con `--no-tint` para desactivar). El tintado
+    solo toca bloques GRISES, asi que es inocuo en personajes con piel de color.
+    ⚠️ **Cell Jr. (XCLJ, bins 160/161) es AZUL/NEGRO con zonas amarillas, NO
+    verde** (lo verde es Saibaman) — su textura real es tex azul (72,167,201);
+    mi propuesta automatica capturaba una textura beige por error. Verificar
+    siempre el color real del personaje en el juego antes de confiar en la
+    heuristica; la tabla curada manda.
 
 ---
 

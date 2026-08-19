@@ -34,8 +34,12 @@ Salidas:
   <out.awo>       AWO convertido (geom listo para slot 2450)
   <out_azt.bin>   AZT con alpha DXT3 forzado a 0xFF (listo para slot 2451)
 """
+import os
 import struct
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+import skin_colors  # noqa: E402
 
 U32 = struct.Struct('>I')
 U16 = struct.Struct('<H')
@@ -176,11 +180,21 @@ def main():
     if '--tint-skin' in args:
         ti = args.index('--tint-skin')
         if ti + 1 < len(args):
-            try:
-                tint_rgb = tuple(int(x) for x in args[ti + 1].split(','))
-                args = args[:ti] + args[ti + 2:]
-            except ValueError:
+            val = args[ti + 1].strip()
+            if val.lower() == 'auto':
+                # resolver el color de piel del personaje desde el label del AWO
+                tint_auto = True
                 tint_rgb = None
+            else:
+                try:
+                    tint_rgb = tuple(int(x) for x in val.split(','))
+                    tint_auto = False
+                except ValueError:
+                    tint_rgb = None
+                    tint_auto = False
+            args = args[:ti] + args[ti + 2:]
+        else:
+            tint_auto = False
     remap_ref = None
     if do_remap:
         ri = args.index('--remap')
@@ -191,6 +205,20 @@ def main():
     awo_path, azt_path, out, out_azt = args[0], args[1], args[2], args[3]
     awo = bytearray(open(awo_path, 'rb').read())
     azt = open(azt_path, 'rb').read()
+
+    # --tint-skin auto: resolver el color de piel del personaje desde el label
+    # del primer AWG (ej. XDBR_BODY -> DBR -> rojo de Dabura).
+    if tint_auto:
+        b3l = labels_hd(awo)
+        label = None
+        for i in sorted(b3l):
+            if 'BODY' in b3l[i] or i == 0:
+                label = b3l[i]
+                break
+        code = skin_colors.skin_code_from_label(label) if label else ''
+        tint_rgb = skin_colors.skin_color_for(code)
+        print('Tint-skin auto: label=%s code=%s -> color=%s' % (
+            label, code, tint_rgb))
 
     amg_am = u32r(awo, 0x18)
     amg_tbl = u32r(awo, 0x1C)

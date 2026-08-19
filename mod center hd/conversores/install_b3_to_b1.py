@@ -97,18 +97,24 @@ def main():
         dest_pairs = _sb.parse_dest_pairs(args.dest_pairs)
         print('Destino expandido a %d pares (todos los trajes): %s' % (
             len(dest_pairs), dest_pairs))
+    manifest = {
+        'name': 'Port B3 -> B1 (%s)' % os.path.basename(args.awo_b3),
+        'description': 'Port de modelo B3 HD a slot B1 HD (geom %d / tex %d).' % (args.dest, args.tex),
+        'author': 'NovaPowers',
+        'version': '1.0',
+        'type': 'port_b3',
+        'source': os.path.basename(args.awo_b3),
+        'target': '%d/%d' % (args.dest, args.tex),
+    }
+    if args.tint_skin:
+        manifest['tint_skin'] = args.tint_skin
+        manifest['version'] = '1.2'
+        manifest['description'] += (' Piel tintada (%s) para que no salga descolorida '
+                                    '(material B3 sobre textura gris).' % args.tint_skin)
     geom_path, tex_path = swap_b1.install(
         comp, dec, geom_data, tex_data, (args.dest, args.tex), args.mod,
         mods_root, afs_path=afs_b1, dest_pairs=dest_pairs,
-        manifest={
-            'name': 'Port B3 -> B1 (%s)' % os.path.basename(args.awo_b3),
-            'description': 'Port de modelo B3 HD a slot B1 HD (geom %d / tex %d).' % (args.dest, args.tex),
-            'author': 'NovaPowers',
-            'version': '1.0',
-            'type': 'port_b3',
-            'source': os.path.basename(args.awo_b3),
-            'target': '%d/%d' % (args.dest, args.tex),
-        })
+        manifest=manifest)
     print('Mod instalado y ACTIVO: %s' % args.mod)
     print('  %s' % geom_path)
     print('  %s' % tex_path)
