@@ -531,6 +531,27 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     determinista "Play tras abrir Mods"). Fix: `ModPipeline::Shutdown()`/destructor
     hacen join + se llama antes de destruir el dialog en el callback de Play +
     try/catch en el worker y en el launch diferido. Recompilado 19/08 15:58.
+28. **🔴 EL PORT/SWAP DEBE CUBRIR TODOS LOS TRAJES DEL DESTINO (19/08, VALIDADO)**:
+    el runtime carga el traje POR DEFECTO del personaje en un par de bins que
+    NO siempre es el primero del bloque. Piccolo por defecto usa **1768/1769**
+    (4110 verts), NO 1766/1767 (4337) que el catálogo marca como "Traje 1".
+    Instalar el port SOLO en el par seleccionado → no se ve en combate.
+    **Fix**: `swap_b1.install()` acepta `dest_pairs` (lista de pares geom:tex)
+    y el pipeline (`launcher_mod_pipeline.py`) expande el `--dest-label` a TODOS
+    los pares del personaje destino desde `characters.cat`. El override se
+    escribe en todos los trajes y todos los `data_*.afs`. Se omiten (con aviso)
+    los pares cuyo slot no admita el comprimido. Pasar `--dest-pairs` desde la
+    CLI/launcher (el C++ ya lo propaga vía `--dest-label`).
+29. **🔴 `_popen` abre ventana CMD y falla con comillas (19/08, FIX PORTADO DEL B3)**:
+    el swap "abría un CMD que no hacía nada" porque `_popen` pasa el comando a
+    `cmd.exe /c`, que falla al parsear comillas cuando el comando empieza con `"`
+    (ej. `"python" ...`) con "sintaxis de la etiqueta del volumen", y además
+    muestra una ventana de consola. **Fix**: `ModPipeline::RunAsync` ahora usa
+    **`CreateProcess`** (sin cmd.exe) con `CREATE_NO_WINDOW`, redirigiendo
+    stdout+stderr a un pipe — igual que el proyecto hermano B3
+    (`DBZ Budokai 3 HD Collection\github\src\launcher\mod_pipeline.cpp`).
+    También escribe `pipeline_cmd.log` (junto al exe) para depurar. Recompilado
+    (exe 19/08 ~17:00).
 
 ---
 

@@ -5,12 +5,15 @@
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 
+#include <windows.h>
+
 #include "settings.h"
 
 #include <cstdio>
 #include <exception>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 namespace dbz1::launcher {
 
@@ -163,23 +166,70 @@ void ModPipeline::RunAsync(const std::vector<std::string>& args) {
   for (const std::string& a : args) {
     cmd += " " + Quote(a);
   }
-  cmd += " 2>&1";
 
+  // Diagnostic log so a failing pipeline command can be inspected.
+  {
+    std::ofstream dbg(rex::filesystem::GetExecutableFolder() / "pipeline_cmd.log",
+                      std::ios::app);
+    dbg << "CMD: " << cmd << "\n";
+  }
+
+  // Use CreateProcess instead of _popen: _popen hands the command to
+  // "cmd.exe /c", which fails to parse quotes when the command starts with '"'
+  // (e.g. "\"python\" ...") with the "volume label syntax" error, and it opens
+  // a visible console window. CreateProcess launches python directly (no
+  // cmd.exe), with CREATE_NO_WINDOW, redirecting stdout+stderr to a pipe so no
+  // CMD window flashes. This is the same fix the sibling B3 project uses.
   worker_ = std::thread([this, cmd]() {
     try {
-      FILE* pipe = _popen(cmd.c_str(), "r");
-      if (!pipe) {
-        AppendOutput("ERROR: no se pudo lanzar python.\n");
+      HANDLE hOutRead = nullptr, hOutWrite = nullptr;
+      SECURITY_ATTRIBUTES sa{};
+      sa.nLength = sizeof(sa);
+      sa.bInheritHandle = TRUE;
+      if (!CreatePipe(&hOutRead, &hOutWrite, &sa, 0)) {
+        AppendOutput("ERROR: no se pudo crear el pipe para python.\n");
         running_.store(false);
         return;
       }
-      char buf[512];
-      size_t n;
-      while ((n = fread(buf, 1, sizeof(buf) - 1, pipe)) > 0) {
+      SetHandleInformation(hOutRead, HANDLE_FLAG_INHERIT, 0);
+
+      STARTUPINFOW si{};
+      si.cb = sizeof(si);
+      si.dwFlags = STARTF_USESTDHANDLES;
+      si.hStdOutput = hOutWrite;
+      si.hStdError = hOutWrite;
+      si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+
+      int wlen = MultiByteToWideChar(CP_UTF8, 0, cmd.c_str(), -1, nullptr, 0);
+      std::vector<wchar_t> wcmd(wlen);
+      MultiByteToWideChar(CP_UTF8, 0, cmd.c_str(), -1, wcmd.data(), wlen);
+
+      PROCESS_INFORMATION pi{};
+      const BOOL ok = CreateProcessW(nullptr, wcmd.data(), nullptr, nullptr,
+                                     TRUE, CREATE_NO_WINDOW, nullptr, nullptr,
+                                     &si, &pi);
+      CloseHandle(hOutWrite);
+      if (!ok) {
+        AppendOutput("ERROR: CreateProcess fallo (WinError " +
+                     std::to_string(GetLastError()) + ").\n");
+        CloseHandle(hOutRead);
+        running_.store(false);
+        return;
+      }
+
+      char buf[4096];
+      DWORD n = 0;
+      while (ReadFile(hOutRead, buf, sizeof(buf), &n, nullptr) && n > 0) {
         buf[n] = '\0';
         AppendOutput(std::string(buf, n));
       }
-      const int rc = _pclose(pipe);
+      CloseHandle(hOutRead);
+
+      WaitForSingleObject(pi.hProcess, INFINITE);
+      DWORD rc = 0;
+      GetExitCodeProcess(pi.hProcess, &rc);
+      CloseHandle(pi.hThread);
+      CloseHandle(pi.hProcess);
       if (rc != 0) {
         AppendOutput("\n[exit code " + std::to_string(rc) + "]\n");
       }
@@ -236,6 +286,7 @@ std::vector<std::string> ModPipeline::SwapArgs(const ModChar& b1_src,
                                    std::to_string(b1_src.geom),
                                    "--dest", std::to_string(b1_dst.geom),
                                    "--tex", std::to_string(b1_dst.tex),
+                                   "--dest-label", b1_dst.label,
                                    "--mod", mod};
   PushOpt(args, "--b1", dbz1::settings::AfsB1Path());
   return args;
@@ -248,6 +299,7 @@ std::vector<std::string> ModPipeline::PortArgs(const ModChar& b3_src,
                                    "--bin", std::to_string(b3_src.geom),
                                    "--dest", std::to_string(b1_dst.geom),
                                    "--tex", std::to_string(b1_dst.tex),
+                                   "--dest-label", b1_dst.label,
                                    "--mod", mod};
   PushOpt(args, "--b3-afs", dbz1::settings::AfsB3Path());
   return args;

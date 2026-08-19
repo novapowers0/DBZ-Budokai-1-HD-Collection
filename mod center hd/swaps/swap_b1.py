@@ -394,8 +394,24 @@ def write_manifest(mods_root, mod_name, fields):
                 f.write("%s=%s\n" % (k, v))
 
 
+def parse_dest_pairs(s):
+    """'g:t,g:t,...' -> [(g,t), ...]"""
+    out = []
+    for chunk in s.split(','):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        g, _, t = chunk.partition(':')
+        try:
+            out.append((int(g), int(t)))
+        except ValueError:
+            raise RuntimeError("--dest-pairs invalido: %r" % chunk)
+    return out
+
+
 def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
-            pads=(PAD_GEOM, PAD_TEX), afs_path=None, manifest=None):
+            pads=(PAD_GEOM, PAD_TEX), afs_path=None, manifest=None,
+            dest_pairs=None):
     """Instala geom+tex comprimidos+padded en el mod.
 
     El override se escribe en TODOS los data_*.afs de personaje (data_sp, us,
@@ -403,12 +419,21 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     leer cualquiera segun region/idioma. Asi el mod funciona sin depender del
     AFS concreto que elija el juego.
 
+    `dest_slots` es un par (geom, tex) usado como referencia (p. ej. para el
+    manifest). Si se da `dest_pairs` (lista de pares (geom, tex)), el override
+    se instala en TODOS los pares: un port/swap a un personaje debe cubrir
+    TODOS sus trajes porque el juego carga el traje por defecto en un par que
+    NO siempre es el primero del bloque (Piccolo usa 1768/1769, no 1766/1767;
+    ver sesión 19/08). Los pares cuyo slot no admita el comprimido se omiten
+    con aviso; si ninguno cabe, se aborta con error claro.
+
     Si `afs_path` se da, el padding se ajusta al tamanio REAL de los slots
     destino (crucial cuando el slot no es el de Tenshinhan: p. ej. Piccolo
     1766/1767 miden 160500/33702, no 290816/33504).
     """
     geom_slot, tex_slot = dest_slots
-    pads = slot_pads(afs_path, geom_slot, tex_slot, pads)
+    if dest_pairs is None:
+        dest_pairs = [(geom_slot, tex_slot)]
     data_afs_names = ("data_sp.afs", "data_us.afs", "data_fr.afs",
                       "data_en.afs", "data_ge.afs", "data_it.afs")
     work = os.path.join(mods_root, mod_name, "us", ".work")
@@ -429,26 +454,38 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     # El padding a un tamaño mayor NO ayuda (el juego solo lee entry_size).
     # Comprobar antes de instalar y fallar con error claro en vez de dejar un
     # mod que crashea (leccion 24 / 2026-08-19).
-    for label, comp_sz, slot in (("geom", g_sz, geom_slot), ("tex", t_sz, tex_slot)):
-        if afs_path:
-            slot_sz = afs_entry_size(afs_path, slot)
-            if slot_sz and comp_sz > slot_sz:
-                raise RuntimeError(
-                    "%s comprimido (%d B) NO cabe en el slot %d del AFS (%d B). "
-                    "El runtime lee entry_size bytes del override; un stream "
-                    "comprimido mayor se trunca y crashea (0xC0000005). Elige un "
-                    "destino con slot de %s mas grande o reduce las texturas."
-                    % (label, comp_sz, slot, slot_sz, label))
+    fitted = []
+    for pair in dest_pairs:
+        pg, pt = pair
+        ok = True
+        for label, comp_sz, slot in (("geom", g_sz, pg), ("tex", t_sz, pt)):
+            if afs_path:
+                slot_sz = afs_entry_size(afs_path, slot)
+                if slot_sz and comp_sz > slot_sz:
+                    print("AVISO: %s comprimido (%d B) NO cabe en slot %d (%d B); "
+                          "se omite este traje." % (label, comp_sz, slot, slot_sz))
+                    ok = False
+                    break
+        if ok:
+            fitted.append(pair)
+    if not fitted:
+        raise RuntimeError(
+            "Ningun slot destino admite el comprimido (geom %d B / tex %d B). "
+            "El runtime lee entry_size bytes del override; un stream comprimido "
+            "mayor se trunca y crashea (0xC0000005). Elige un personaje destino "
+            "con slots mas grandes o reduce las texturas." % (g_sz, t_sz))
 
-    # padding al tamano de slot
+    # round-trip verificado una sola vez con el mayor padding de los pares que
+    # caben (los ceros finales no afectan a la descompresion LZX).
+    pad_sizes = [slot_pads(afs_path, pg, pt, pads) for pg, pt in fitted]
+    g_pad_size = max(p[0] for p in pad_sizes)
+    t_pad_size = max(p[1] for p in pad_sizes)
     g_pad = os.path.join(work, "geom_pad.bin")
     t_pad = os.path.join(work, "tex_pad.bin")
     shutil.copy(g_lzx, g_pad)
     shutil.copy(t_lzx, t_pad)
-    g_final = pad_to(g_pad, pads[0])
-    t_final = pad_to(t_pad, pads[1])
-
-    # verificar round-trip
+    g_final = pad_to(g_pad, g_pad_size)
+    t_final = pad_to(t_pad, t_pad_size)
     g_rt = os.path.join(work, "geom_rt.bin")
     t_rt = os.path.join(work, "tex_rt.bin")
     lzx_decompress(dec, g_pad, g_rt)
@@ -459,17 +496,25 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     if not (ok_g and ok_t):
         raise RuntimeError("round-trip fallo, no se instala")
 
-    # instalar en todos los data_*.afs de personaje
+    # instalar en todos los pares y todos los data_*.afs de personaje
     installed = []
     for afs_name in data_afs_names:
         out_dir = os.path.join(mods_root, mod_name, "us", afs_name)
-        geom_path = os.path.join(out_dir, str(geom_slot), "geom.bin")
-        tex_path = os.path.join(out_dir, str(tex_slot), "tex.bin")
-        os.makedirs(os.path.dirname(geom_path), exist_ok=True)
-        os.makedirs(os.path.dirname(tex_path), exist_ok=True)
-        shutil.copy(g_pad, geom_path)
-        shutil.copy(t_pad, tex_path)
-        installed.append((geom_path, tex_path))
+        for pair, (pg_pad, pt_pad) in zip(fitted, pad_sizes):
+            pg, pt = pair
+            g_pair = os.path.join(work, "geom_pair_%d.bin" % pg)
+            t_pair = os.path.join(work, "tex_pair_%d.bin" % pt)
+            shutil.copy(g_lzx, g_pair)
+            shutil.copy(t_lzx, t_pair)
+            pad_to(g_pair, pg_pad)
+            pad_to(t_pair, pt_pad)
+            geom_path = os.path.join(out_dir, str(pg), "geom.bin")
+            tex_path = os.path.join(out_dir, str(pt), "tex.bin")
+            os.makedirs(os.path.dirname(geom_path), exist_ok=True)
+            os.makedirs(os.path.dirname(tex_path), exist_ok=True)
+            shutil.copy(g_pair, geom_path)
+            shutil.copy(t_pair, tex_path)
+            installed.append((geom_path, tex_path))
     for geom_path, tex_path in installed:
         print("Instalado:")
         print("  %s" % geom_path)
@@ -497,6 +542,9 @@ def main():
     ap.add_argument("--dir", default=None, help="carpeta con geom.bin/tex.bin ya extraidos")
     ap.add_argument("--mod", default=None, help="nombre del mod (default auto)")
     ap.add_argument("--dry", action="store_true", help="solo plan, no instalar")
+    ap.add_argument("--dest-pairs", default=None,
+                    help="pares (geom:tex,geom:tex,...) del destino; si se da, "
+                         "se instala en TODOS (todos los trajes del personaje)")
     ap.add_argument("--max-bins", type=int, default=None, help="limitar escaneo (debug)")
     args = ap.parse_args()
 
@@ -583,6 +631,15 @@ def main():
         return 1
     print("Destino: slot %d (geom) + slot %d (tex)" % (geom_slot, tex_slot))
 
+    # dest_pairs: si se da, instalar en TODOS los pares del personaje destino
+    # (el juego carga el traje por defecto en un par que no siempre es el
+    # primero; ej. Piccolo usa 1768/1769, no 1766/1767).
+    dest_pairs = None
+    if args.dest_pairs:
+        dest_pairs = parse_dest_pairs(args.dest_pairs)
+        print("Destino expandido a %d pares (todos los trajes): %s" % (
+            len(dest_pairs), dest_pairs))
+
     # Padding al tamanio REAL de los slots destino en el AFS (no a una
     # constante de Tenshinhan). El runtime sirve el override leyendo
     # `entry_size` bytes de la entrada original, asi que el override debe
@@ -605,6 +662,7 @@ def main():
     mods_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mods")
     geom_path, tex_path = install(comp, dec, geom_data, tex_data, (geom_slot, tex_slot),
                                   mod_name, mods_root, pads=pads, afs_path=args.afs,
+                                  dest_pairs=dest_pairs,
                                   manifest={
                                       'name': 'Swap B1 -> B1 (%s)' % args.origen,
                                       'description': 'Swap del modelo %s sobre slot geom %d / tex %d.' % (args.origen, geom_slot, tex_slot),

@@ -31,6 +31,9 @@ def main():
     ap.add_argument('--mod', default='test_b3_to_b1', help='nombre del mod')
     ap.add_argument('--dest', type=int, default=2450, help='slot geom destino')
     ap.add_argument('--tex', type=int, default=2451, help='slot tex destino')
+    ap.add_argument('--dest-pairs', default=None,
+                    help='pares (geom:tex,...) del destino; si se da, se instala '
+                         'en TODOS (todos los trajes del personaje)')
     ap.add_argument('--flatten', action='store_true', help='aplanar grp (opcional)')
     ap.add_argument('--remap', default=None, help='ref B1 para remap de bones (opcional)')
     ap.add_argument('--mods-root', default=None, help='raiz de mods (default: <repo>/mods)')
@@ -82,9 +85,15 @@ def main():
     # padding al tamanio REAL del slot destino (--afs B1); sin AFS usa el
     # default de Tenshinhan (puede quedar corto en otros slots -> tex rota)
     afs_b1 = args.afs or paths.find_b1_afs()
+    dest_pairs = None
+    if args.dest_pairs:
+        import swap_b1 as _sb
+        dest_pairs = _sb.parse_dest_pairs(args.dest_pairs)
+        print('Destino expandido a %d pares (todos los trajes): %s' % (
+            len(dest_pairs), dest_pairs))
     geom_path, tex_path = swap_b1.install(
         comp, dec, geom_data, tex_data, (args.dest, args.tex), args.mod,
-        mods_root, afs_path=afs_b1,
+        mods_root, afs_path=afs_b1, dest_pairs=dest_pairs,
         manifest={
             'name': 'Port B3 -> B1 (%s)' % os.path.basename(args.awo_b3),
             'description': 'Port de modelo B3 HD a slot B1 HD (geom %d / tex %d).' % (args.dest, args.tex),

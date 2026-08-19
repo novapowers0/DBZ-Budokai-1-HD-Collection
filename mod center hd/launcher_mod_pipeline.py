@@ -112,6 +112,35 @@ def default_b3_afs():
     return paths.find_b3_afs()
 
 
+def catalog_path():
+    return os.path.join(HERE, 'cache', 'characters.cat')
+
+
+def cat_rows():
+    """Lee characters.cat y devuelve lista de (label, geom, tex) de los B1."""
+    rows = []
+    p = catalog_path()
+    if not os.path.isfile(p):
+        return rows
+    with open(p, encoding='utf-8') as f:
+        for line in f:
+            if not line.startswith('B1|'):
+                continue
+            parts = line.rstrip('\n').split('|')
+            if len(parts) >= 9 and parts[7].isdigit() and parts[8].isdigit():
+                rows.append((parts[1], int(parts[7]), int(parts[8])))
+    return rows
+
+
+def pairs_for_label(label):
+    """Todos los pares (geom, tex) de un label B1 (todos sus trajes)."""
+    return [(g, t) for l, g, t in cat_rows() if l == label]
+
+
+def pairs_arg(pairs):
+    return ','.join('%d:%d' % p for p in pairs)
+
+
 # ---------------------------------------------------------------------------
 # Catalogo
 # ---------------------------------------------------------------------------
@@ -325,6 +354,10 @@ def cmd_swap(args):
            '--mod', args.mod or 'swap_%s_on_%d' % (args.origen, args.dest)]
     if args.tex:
         cmd += ['--tex', str(args.tex)]
+    if args.dest_label:
+        pairs = pairs_for_label(args.dest_label)
+        if pairs:
+            cmd += ['--dest-pairs', pairs_arg(pairs)]
     if args.dry:
         cmd += ['--dry']
     print('>>> ' + ' '.join(cmd))
@@ -393,6 +426,10 @@ def cmd_port(args):
            os.path.join(CONV, 'install_b3_to_b1.py'),
            awo_b3, azt_b3, '--mod', mod,
            '--dest', str(args.dest), '--tex', str(args.tex)]
+    if args.dest_label:
+        pairs = pairs_for_label(args.dest_label)
+        if pairs:
+            cmd += ['--dest-pairs', pairs_arg(pairs)]
     b1_afs = default_b1_afs()
     if b1_afs:
         cmd += ['--afs', b1_afs]
@@ -418,6 +455,8 @@ def main():
     p_swap.add_argument('--origen', required=True)
     p_swap.add_argument('--dest', type=int, required=True)
     p_swap.add_argument('--tex', type=int, default=None)
+    p_swap.add_argument('--dest-label', default=None,
+                        help='label B1 del destino (se expande a TODOS sus trajes)')
     p_swap.add_argument('--mod', default=None)
     p_swap.add_argument('--b1', default=None)
     p_swap.add_argument('--dry', action='store_true')
@@ -427,6 +466,8 @@ def main():
     p_port.add_argument('--bin', type=int, default=None, help='idx del bin B3')
     p_port.add_argument('--dest', type=int, required=True, help='slot geom B1')
     p_port.add_argument('--tex', type=int, required=True, help='slot tex B1')
+    p_port.add_argument('--dest-label', default=None,
+                        help='label B1 del destino (se expande a TODOS sus trajes)')
     p_port.add_argument('--mod', default=None)
     p_port.add_argument('--b3-afs', dest='b3_afs', default=None)
     p_port.add_argument('--work', default=None)
