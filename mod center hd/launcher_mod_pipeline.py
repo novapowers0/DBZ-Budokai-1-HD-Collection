@@ -354,10 +354,6 @@ def cmd_swap(args):
            '--mod', args.mod or 'swap_%s_on_%d' % (args.origen, args.dest)]
     if args.tex:
         cmd += ['--tex', str(args.tex)]
-    if args.dest_label:
-        pairs = pairs_for_label(args.dest_label)
-        if pairs:
-            cmd += ['--dest-pairs', pairs_arg(pairs)]
     if args.dry:
         cmd += ['--dry']
     print('>>> ' + ' '.join(cmd))
@@ -426,10 +422,6 @@ def cmd_port(args):
            os.path.join(CONV, 'install_b3_to_b1.py'),
            awo_b3, azt_b3, '--mod', mod,
            '--dest', str(args.dest), '--tex', str(args.tex)]
-    if args.dest_label:
-        pairs = pairs_for_label(args.dest_label)
-        if pairs:
-            cmd += ['--dest-pairs', pairs_arg(pairs)]
     b1_afs = default_b1_afs()
     if b1_afs:
         cmd += ['--afs', b1_afs]

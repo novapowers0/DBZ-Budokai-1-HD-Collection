@@ -552,6 +552,21 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     (`DBZ Budokai 3 HD Collection\github\src\launcher\mod_pipeline.cpp`).
     También escribe `pipeline_cmd.log` (junto al exe) para depurar. Recompilado
     (exe 19/08 ~17:00).
+30. **🔴 PIEL BLANCA EN PORTS = specular forzado en todo (19/08, VALIDADO)**:
+    el B1 nativo usa type2 **0x1BD (sin specular) para la piel** (cara, manos) y
+    **0x11BD (con specular) para la ropa/cuerpo** (verificado en Piccolo 1768:
+    partes 0x2/0x3/0x1 y manos = 0x1BD). `port_b3_to_b1_v2.py` forzaba TODO a
+    0x11BD → la piel salía blanca (quemada por el specular, ej. Dabura).
+    **Fix**: el port ahora lee el label del AWG (+0x40) y, si contiene `FACE` o
+    `HAND` (piel), deja type2 en 0x1BD (sin specular); el resto (BODY/ropa) se
+    sube a 0x11BD. Nota: el default de Piccolo es 1768/1769 (no 1766/1767).
+31. **Persistencia de AFS (19/08, pendiente de validar)**: `dbz1_user.toml` se
+    regeneró vacío tras un error de parseo ("expected hex digit, saw 's'"), por
+    lo que los cvars AFS (`dbz1_afs_b1_path`/`dbz1_afs_b3_path`, namespace
+    `DBZ1/Dev`) se perdieron y el launcher "olvidó" los archivos fuente.
+    `SaveConfig` (rex::cvar) solo persiste los cvars modificados; revisar si el
+    namespace `DBZ1/Dev` se incluye. Mientras tanto, el launcher muestra un
+    AVISO si el AFS no está seleccionado (autodetección).
 
 ---
 

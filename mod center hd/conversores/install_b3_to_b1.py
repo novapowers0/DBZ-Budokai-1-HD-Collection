@@ -110,4 +110,11 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except RuntimeError as e:
+        print('ERROR: %s' % e)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print('\nCancelado.')
+        sys.exit(130)

@@ -286,7 +286,6 @@ std::vector<std::string> ModPipeline::SwapArgs(const ModChar& b1_src,
                                    std::to_string(b1_src.geom),
                                    "--dest", std::to_string(b1_dst.geom),
                                    "--tex", std::to_string(b1_dst.tex),
-                                   "--dest-label", b1_dst.label,
                                    "--mod", mod};
   PushOpt(args, "--b1", dbz1::settings::AfsB1Path());
   return args;
@@ -299,7 +298,6 @@ std::vector<std::string> ModPipeline::PortArgs(const ModChar& b3_src,
                                    "--bin", std::to_string(b3_src.geom),
                                    "--dest", std::to_string(b1_dst.geom),
                                    "--tex", std::to_string(b1_dst.tex),
-                                   "--dest-label", b1_dst.label,
                                    "--mod", mod};
   PushOpt(args, "--b3-afs", dbz1::settings::AfsB3Path());
   return args;

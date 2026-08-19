@@ -125,11 +125,14 @@ un mod **después** de que el launcher ya escaneó, hay que llamar a
   2. **El runtime carga el traje por defecto de Piccolo en 1768/1769** (4110
      verts), NO 1766/1767 (4337) que el catálogo etiqueta "Traje 1". Instalar el
      port SOLO en 1766/1767 → no se veía en combate.
-- **Fix**: `swap_b1.install()` acepta `dest_pairs` (todos los trajes) y el
-  pipeline expande `--dest-label` a todos los pares del personaje. El port
-  Dabura→Piccolo ahora se instala en **1766/1767, 1768/1769, 1770/1771 y
-  1772/1773** (todos los AFS). Mod reactivado con manifest. Lo mismo para
-  Dabura→Tenshinhan (363/364 + 365/366).
+- **Fix (deseo del usuario: SOLO 1 traje)**: se revirtió la expansión a todos
+  los trajes; el port se instala SOLO en el par elegido. Para Piccolo el par
+  default que carga el juego es **1768/1769**, así que el port de Dabura se
+  instala ahí (traje por defecto) → se ve al seleccionar Piccolo sin tocar los
+  demás trajes. En la UI hay que elegir el traje por defecto del personaje.
+- **Fix de la piel blanca (lección 30)**: el port forzaba specular (0x11BD) en
+  todo → piel blanca. Ahora las partes de cara/manos (labels FACE/HAND) usan
+  0x1BD (sin specular).
 - **Nota**: con varios mods activos a la vez se solapan los overrides de los
   mismos slots (el último activado gana). Mantener **uno solo activo** a la vez
   (el instalador ya desactiva los demás).
@@ -172,9 +175,11 @@ un mod **después** de que el launcher ya escaneó, hay que llamar a
 5. ✅ **Swap B1→B1**: pasó de `_popen` a **`CreateProcess`** (lección 29) para
    que no abra una ventana CMD vacía y no falle por comillas. Recompilado.
    **Validar en juego**: el swap ya debe ejecutarse y mostrar su output.
+   Nota: Ginyu→Piccolo "no se instaló" porque su geom (801440 B comprimido
+   284974) no cabe en ningún slot de Piccolo (máx 224596) — ahora da error
+   claro en vez de dejar el mod colgado.
 6. **Sincronizar con GitHub (`github/`)**: copiar fuentes modificados + docs y
-   commitear (commit local `440b7c4`; **push pendiente** — el usuario lo hace
-   o se reintenta con auth).
+   commitear (commits locales pendientes de push; **no subir hasta validar**).
 7. **Actualizar** este documento y `AGENTS.md` con las conclusiones de la sesión.
 
 ---

@@ -798,6 +798,15 @@ void LauncherDialog::DrawModPipelineTab() {
       ImGui::SameLine();
       ImGui::TextDisabled("(%d modelos)", static_cast<int>(b1.size()));
       const bool can_port = pipeline_b3_idx_ >= 0 && pipeline_b1_dst_idx_ >= 0;
+      const bool b3_afs_set = !dbz1::settings::AfsB3Path().empty();
+      const bool b1_afs_set = !dbz1::settings::AfsB1Path().empty();
+      if (!b3_afs_set || !b1_afs_set) {
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f),
+                           "AVISO: %s%sArchivos fuente no seleccionados; "
+                           "se usara la autodeteccion.",
+                           b3_afs_set ? "" : "AFS B3 (data_cmn.afs) vacio. ",
+                           b1_afs_set ? "" : "AFS B1 (data_us.afs) vacio. ");
+      }
       ImGui::BeginDisabled(!can_port || mod_pipeline_.IsRunning());
       if (ImGui::Button("Portar modelo B3 -> B1", ImVec2(220, 0))) {
         mod_pipeline_.PortB3ToB1(b3[pipeline_b3_idx_], b1[pipeline_b1_dst_idx_]);
@@ -864,6 +873,11 @@ void LauncherDialog::DrawModPipelineTab() {
       }
       ImGui::SameLine();
       ImGui::TextDisabled("(%d modelos)", static_cast<int>(swap_dst_idx.size()));
+      if (!dbz1::settings::AfsB1Path().empty() == false) {
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f),
+                           "AVISO: AFS B1 (data_us.afs) no seleccionado; "
+                           "se usara la autodeteccion.");
+      }
       const bool can_swap = pipeline_b1_src_idx_ >= 0 && pipeline_swap_dst_idx_ >= 0;
       ImGui::BeginDisabled(!can_swap || mod_pipeline_.IsRunning());
       if (ImGui::Button("Swap B1 -> B1", ImVec2(220, 0))) {
