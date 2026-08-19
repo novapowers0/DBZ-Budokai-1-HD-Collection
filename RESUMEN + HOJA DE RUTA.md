@@ -119,15 +119,20 @@ un mod **después** de que el launcher ya escaneó, hay que llamar a
 - **Validación pendiente**: pulsar Play tras abrir Mods/pipeline con el exe nuevo.
 
 ### 4.2 — ✅ RESUELTO (19/08): Mod Dabura→Piccolo "no hacía cambios"
-- **Causa**: el mod `port_XDBR_BODY_176_to_1766` estaba **desactivado** (`.disabled`)
-  y no tenía `manifest.txt`. `manage_mods()` desactiva todos los demás mods al
-  instalar uno nuevo (Broly lo desactivó). El port en sí es **VÁLIDO**:
-  geom comprimido 73204 B ≤ slot 1766 (160500 B) ✓ y tex comprimido 23470 B ≤
-  slot 1767 (33702 B) ✓, AZT con 15 DDS DXT3 coherentes.
-- **Acción**: reactivado y se le generó `manifest.txt`. Al activarlo, Piccolo
-  (1766/1767) debe renderizar el modelo de Dabura.
-- **Mejora**: `swap_b1.install()` ahora escribe `manifest.txt` automáticamente
-  (name/description/author/version/type/source/target) en futuras instalaciones.
+- **Causa (doble)**:
+  1. El mod `port_XDBR_BODY_176_to_1766` estaba **desactivado** (`.disabled`) y
+     sin `manifest.txt` (`manage_mods()` desactiva los demás al instalar uno nuevo).
+  2. **El runtime carga el traje por defecto de Piccolo en 1768/1769** (4110
+     verts), NO 1766/1767 (4337) que el catálogo etiqueta "Traje 1". Instalar el
+     port SOLO en 1766/1767 → no se veía en combate.
+- **Fix**: `swap_b1.install()` acepta `dest_pairs` (todos los trajes) y el
+  pipeline expande `--dest-label` a todos los pares del personaje. El port
+  Dabura→Piccolo ahora se instala en **1766/1767, 1768/1769, 1770/1771 y
+  1772/1773** (todos los AFS). Mod reactivado con manifest. Lo mismo para
+  Dabura→Tenshinhan (363/364 + 365/366).
+- **Nota**: con varios mods activos a la vez se solapan los overrides de los
+  mismos slots (el último activado gana). Mantener **uno solo activo** a la vez
+  (el instalador ya desactiva los demás).
 
 ### 4.3 — ✅ CAUSA RAÍZ ENCONTRADA (19/08): Broly B3 → Nappa B1 crash
 - **Intento**: `port_XBRL_BODY_119_to_1387` = **Broly B3 (XBRL, bin 119) → Nappa B1
@@ -158,14 +163,19 @@ un mod **después** de que el launcher ya escaneó, hay que llamar a
    19/08 15:58) incluye el fix del thread joinable + try/catch del launch.
 2. ✅ **Fix de Play (4.1) aplicado y recompilado**; **validar en juego**: abrir
    Mods/pipeline y pulsar Play — ya no debe crashear.
-3. ✅ **Dabura→Piccolo (4.2)**: port válido; mod reactivado con manifest.
-   **Validar en juego**: Play → seleccionar Piccolo → debe verse Dabura.
+3. ✅ **Dabura→Piccolo (4.2)**: causa doble resuelta — port ahora cubre TODOS
+   los trajes de Piccolo (1766-1773) porque el juego carga 1768/1769 por defecto;
+   mod reactivado con manifest. **Validar en juego**: Play → Piccolo → Dabura.
 4. ✅ **Broly→Nappa (4.3)**: causa raíz = tex comprimido (30572 B) > slot 1388
    (18632 B) → truncación → crash. Validación añadida al pipeline; mod
    desactivado. Para Broly en otro slot: usar destino con tex ≥ 30572 B.
-5. **Sincronizar con GitHub (`github/`)**: copiar fuentes modificados + docs y
-   commitear (pendiente de hacer tras la validación en juego).
-6. **Actualizar** este documento y `AGENTS.md` con las conclusiones de la sesión.
+5. ✅ **Swap B1→B1**: pasó de `_popen` a **`CreateProcess`** (lección 29) para
+   que no abra una ventana CMD vacía y no falle por comillas. Recompilado.
+   **Validar en juego**: el swap ya debe ejecutarse y mostrar su output.
+6. **Sincronizar con GitHub (`github/`)**: copiar fuentes modificados + docs y
+   commitear (commit local `440b7c4`; **push pendiente** — el usuario lo hace
+   o se reintenta con auth).
+7. **Actualizar** este documento y `AGENTS.md` con las conclusiones de la sesión.
 
 ---
 
@@ -184,4 +194,4 @@ un mod **después** de que el launcher ya escaneó, hay que llamar a
 ---
 
 *Firmado por NovaPowers. MIT License.*
-*Última actualización: 2026-08-19 (sesión con 4.1/4.2/4.3 resueltos en código; falta validación en juego y sync GitHub).*
+*Última actualización: 2026-08-19 (4.1-4.3 resueltos en código + fix swap/CreateProcess + cobertura de todos los trajes; falta validación en juego y push GitHub).*
