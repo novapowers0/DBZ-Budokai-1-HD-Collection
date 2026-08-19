@@ -7,6 +7,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 
 #include <imgui.h>
 
@@ -21,6 +22,11 @@ namespace dbz1::launcher {
 class LauncherDialog : public rex::ui::ImGuiDialog {
  public:
   LauncherDialog(rex::ui::ImGuiDrawer* drawer, std::function<void()> on_play);
+
+  // Joins the model-pipeline worker thread so the self-deleting dialog can be
+  // torn down safely when Play is pressed (a joinable std::thread destroyed
+  // would call std::terminate).
+  void ShutdownPipeline();
 
  protected:
   void OnDraw(ImGuiIO& io) override;
@@ -37,9 +43,14 @@ class LauncherDialog : public rex::ui::ImGuiDialog {
   int active_tab_ = 0;
   ModPipeline mod_pipeline_;
   // Selected indices into the pipeline catalogs (-1 = none).
+  // NOTE: pipeline_b1_dst_idx_ indexes into b1[] directly (Port destination),
+  // while pipeline_swap_dst_idx_ indexes into the FILTERED swap list
+  // (swap_dst_idx). They MUST stay separate, or a selection in one combo
+  // corrupts the other's index semantics (wrong destination character).
   int pipeline_b3_idx_ = -1;
   int pipeline_b1_dst_idx_ = -1;
   int pipeline_b1_src_idx_ = -1;
+  int pipeline_swap_dst_idx_ = -1;
   bool catalog_load_attempted_ = false;
   bool scan_was_running_ = false;
   char output_buf_[8192] = {};
@@ -54,12 +65,6 @@ class LauncherDialog : public rex::ui::ImGuiDialog {
   char afs_b1_buf_[512] = {};
   char afs_b3_buf_[512] = {};
   bool afs_bufs_synced_ = false;
-  // Pending SDL file-dialog target: 1 = B1, 2 = B3.
-  int afs_dialog_target_ = 0;
-
-  // SDL file-dialog callback (launcher owns the userdata).
-  static void AfsDialogCallback(void* userdata, const char* const* filelist,
-                                int filter);
 };
 
 }  // namespace dbz1::launcher

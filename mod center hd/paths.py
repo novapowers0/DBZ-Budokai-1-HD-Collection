@@ -18,7 +18,7 @@ REPO = os.path.dirname(HERE)
 ASSETS = os.path.join(REPO, 'assets')
 TOOLS = os.path.join(REPO, 'tools')
 
-B1_AFS_NAMES = ('data_sp.afs', 'data_us.afs', 'data_fr.afs',
+B1_AFS_NAMES = ('data_us.afs', 'data_sp.afs', 'data_fr.afs',
                 'data_en.afs', 'data_ge.afs', 'data_it.afs')
 
 

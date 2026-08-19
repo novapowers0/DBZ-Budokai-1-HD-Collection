@@ -44,6 +44,7 @@ target_include_directories(dbz1 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/generated
+    ${CMAKE_CURRENT_SOURCE_DIR}/rexglue-sdk/include
 )
 
 target_link_libraries(dbz1 PRIVATE

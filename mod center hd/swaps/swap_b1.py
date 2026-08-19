@@ -147,6 +147,14 @@ def extract_afs_entry(afs_path, idx):
         return f.read(size)
 
 
+def afs_entry_size(afs_path, idx):
+    """Tamanio (comprimido) de la entrada `idx` del AFS, o None si no existe."""
+    entries = read_afs_index(afs_path)
+    if 0 <= idx < len(entries):
+        return entries[idx][1]
+    return None
+
+
 def decompress_entry(dec, data, workdir, name):
     lzx = os.path.join(workdir, name + ".lzx")
     out = os.path.join(workdir, name + ".bin")
@@ -345,16 +353,62 @@ def manage_mods(mods_root, keep_name):
         os.remove(keep)
 
 
+def slot_pads(afs_path, geom_slot, tex_slot, pads=(PAD_GEOM, PAD_TEX)):
+    """Padding al tamanio REAL de los slots destino en el AFS (no a una
+    constante de Tenshinhan). El runtime sirve el override leyendo `entry_size`
+    bytes de la entrada original, asi que el override debe tener AL MENOS ese
+    tamano; si el bin comprimido lo supera, `pad_to` fallara con error claro.
+    Nunca usar un pad menor que el slot (truncaria la lectura).
+    """
+    pg, pt = pads
+    if afs_path:
+        g_sz = afs_entry_size(afs_path, geom_slot)
+        if g_sz:
+            pg = max(g_sz, pg)
+        t_sz = afs_entry_size(afs_path, tex_slot)
+        if t_sz:
+            pt = max(t_sz, pt)
+    return (pg, pt)
+
+
+def write_manifest(mods_root, mod_name, fields):
+    """Escribe/actualiza manifest.txt del mod con los campos dados (dict).
+
+    Los campos se escriben como 'clave=valor' (una por linea). Las claves
+    conocidas: name, description, author, version, type, source, target.
+    """
+    path = os.path.join(mods_root, mod_name, "manifest.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    lines = []
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            lines = [l.rstrip("\n") for l in f]
+    keys = set(fields)
+    kept = [l for l in lines
+            if "=" not in l or l.split("=", 1)[0].strip() not in keys]
+    with open(path, "w", encoding="utf-8") as f:
+        for l in kept:
+            f.write(l + "\n")
+        for k, v in fields.items():
+            if v:
+                f.write("%s=%s\n" % (k, v))
+
+
 def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
-            pads=(PAD_GEOM, PAD_TEX)):
+            pads=(PAD_GEOM, PAD_TEX), afs_path=None, manifest=None):
     """Instala geom+tex comprimidos+padded en el mod.
 
     El override se escribe en TODOS los data_*.afs de personaje (data_sp, us,
     fr, en, ge, it): comparten la misma numeracion de bins y el runtime puede
     leer cualquiera segun region/idioma. Asi el mod funciona sin depender del
     AFS concreto que elija el juego.
+
+    Si `afs_path` se da, el padding se ajusta al tamanio REAL de los slots
+    destino (crucial cuando el slot no es el de Tenshinhan: p. ej. Piccolo
+    1766/1767 miden 160500/33702, no 290816/33504).
     """
     geom_slot, tex_slot = dest_slots
+    pads = slot_pads(afs_path, geom_slot, tex_slot, pads)
     data_afs_names = ("data_sp.afs", "data_us.afs", "data_fr.afs",
                       "data_en.afs", "data_ge.afs", "data_it.afs")
     work = os.path.join(mods_root, mod_name, "us", ".work")
@@ -368,6 +422,23 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
     g_sz = lzx_compress(comp, g_raw, g_lzx)
     t_sz = lzx_compress(comp, t_raw, t_lzx)
     print("Comprimido: geom %d -> %d B | tex %d -> %d B" % (len(geom_data), g_sz, len(tex_data), t_sz))
+
+    # El runtime sirve el override leyendo `entry_size` bytes de la entrada
+    # original. Si el bin COMPRIMIDO supera ese tamaño, el stream LZX se trunca
+    # -> descompresion corrupta -> crash 0xC0000005 al cargar el personaje.
+    # El padding a un tamaño mayor NO ayuda (el juego solo lee entry_size).
+    # Comprobar antes de instalar y fallar con error claro en vez de dejar un
+    # mod que crashea (leccion 24 / 2026-08-19).
+    for label, comp_sz, slot in (("geom", g_sz, geom_slot), ("tex", t_sz, tex_slot)):
+        if afs_path:
+            slot_sz = afs_entry_size(afs_path, slot)
+            if slot_sz and comp_sz > slot_sz:
+                raise RuntimeError(
+                    "%s comprimido (%d B) NO cabe en el slot %d del AFS (%d B). "
+                    "El runtime lee entry_size bytes del override; un stream "
+                    "comprimido mayor se trunca y crashea (0xC0000005). Elige un "
+                    "destino con slot de %s mas grande o reduce las texturas."
+                    % (label, comp_sz, slot, slot_sz, label))
 
     # padding al tamano de slot
     g_pad = os.path.join(work, "geom_pad.bin")
@@ -405,6 +476,9 @@ def install(comp, dec, geom_data, tex_data, dest_slots, mod_name, mods_root,
         print("  %s" % tex_path)
     # gestion de mods: activar este, desactivar el resto
     manage_mods(mods_root, mod_name)
+    # manifest (metadatos para la pestaña Mods del launcher)
+    if manifest:
+        write_manifest(mods_root, mod_name, manifest)
     return installed[0]
 
 
@@ -431,10 +505,10 @@ def main():
         print("ERROR: no se encontraron xbcompress/xbdecompress")
         return 1
 
-    # ubicar AFS (cualquier data_*.afs de personaje: sp/us/fr/en/ge/it)
+    # ubicar AFS (cualquier data_*.afs de personaje: us/sp/fr/en/ge/it)
     if args.afs is None:
         root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets")
-        for name in ("data_sp.afs", "data_us.afs", "data_fr.afs",
+        for name in ("data_us.afs", "data_sp.afs", "data_fr.afs",
                      "data_en.afs", "data_ge.afs", "data_it.afs"):
             for region in ("eu", "us"):
                 p = os.path.join(root, region, name)
@@ -509,6 +583,14 @@ def main():
         return 1
     print("Destino: slot %d (geom) + slot %d (tex)" % (geom_slot, tex_slot))
 
+    # Padding al tamanio REAL de los slots destino en el AFS (no a una
+    # constante de Tenshinhan). El runtime sirve el override leyendo
+    # `entry_size` bytes de la entrada original, asi que el override debe
+    # tener al menos ese tamano. Si el bin no cabe, error claro en vez de
+    # truncar silenciosamente (crash/modelo roto).
+    pads = slot_pads(args.afs, geom_slot, tex_slot)
+    print("Pads slot: geom=%d tex=%d" % pads)
+
     if args.dry:
         print("DRY: no se instala")
         return 0
@@ -522,7 +604,16 @@ def main():
     # instalar
     mods_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mods")
     geom_path, tex_path = install(comp, dec, geom_data, tex_data, (geom_slot, tex_slot),
-                                  mod_name, mods_root)
+                                  mod_name, mods_root, pads=pads, afs_path=args.afs,
+                                  manifest={
+                                      'name': 'Swap B1 -> B1 (%s)' % args.origen,
+                                      'description': 'Swap del modelo %s sobre slot geom %d / tex %d.' % (args.origen, geom_slot, tex_slot),
+                                      'author': 'NovaPowers',
+                                      'version': '1.0',
+                                      'type': 'swap_b1',
+                                      'source': args.origen,
+                                      'target': '%d/%d' % (geom_slot, tex_slot),
+                                  })
     print("\nMod activo: %s" % mod_name)
     print("Overrides instalados (2450/2451); el resto de mods desactivado.")
     print("Probar en combate; si algo falla, borra la carpeta del mod.")

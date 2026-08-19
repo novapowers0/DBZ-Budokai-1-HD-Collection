@@ -86,10 +86,11 @@ def lookup_b3_bin(bin_idx):
 
 # Los AFS por defecto de cada juego.
 # B1: los modelos de personaje viven en CUALQUIER data_*.afs del juego
-# (data_sp, data_us, data_fr, data_en, data_ge, data_it) — todos comparten la
-# misma numeracion de bins (2575 entradas). Se elige el primero que exista.
-B1_AFS_NAMES = ('data_sp.afs', 'data_us.afs', 'data_fr.afs', 'data_en.afs',
-                'data_ge.afs', 'data_it.afs')
+# (data_us, data_sp, data_fr, data_en, data_ge, data_it) — todos comparten la
+# misma numeracion de bins (2575 entradas). Se elige el primero que exista,
+# priorizando data_us.afs.
+B1_AFS_NAMES = ('data_us.afs', 'data_sp.afs', 'data_fr.afs',
+                'data_en.afs', 'data_ge.afs', 'data_it.afs')
 
 
 def find_b1_afs(region_dir):
@@ -319,6 +320,7 @@ def cmd_swap(args):
         print('ERROR: no se encontro data_sp.afs del B1')
         return 1
     cmd = [sys.executable, os.path.join(SWAPS, 'swap_b1.py'),
+           '--afs', b1_afs,
            '--origen', args.origen, '--dest', str(args.dest),
            '--mod', args.mod or 'swap_%s_on_%d' % (args.origen, args.dest)]
     if args.tex:
@@ -391,6 +393,9 @@ def cmd_port(args):
            os.path.join(CONV, 'install_b3_to_b1.py'),
            awo_b3, azt_b3, '--mod', mod,
            '--dest', str(args.dest), '--tex', str(args.tex)]
+    b1_afs = default_b1_afs()
+    if b1_afs:
+        cmd += ['--afs', b1_afs]
     print('>>> ' + ' '.join(cmd))
     if args.dry:
         return 0

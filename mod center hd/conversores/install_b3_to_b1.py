@@ -35,6 +35,8 @@ def main():
     ap.add_argument('--remap', default=None, help='ref B1 para remap de bones (opcional)')
     ap.add_argument('--mods-root', default=None, help='raiz de mods (default: <repo>/mods)')
     ap.add_argument('--work', default=None, help='carpeta de trabajo temporal')
+    ap.add_argument('--afs', default=None,
+                    help='data_*.afs del B1 destino (para padding al tamanio real del slot)')
     args = ap.parse_args()
 
     # localizar mods root y swap_b1
@@ -45,7 +47,9 @@ def main():
         mods_root = os.path.join(repo, 'mods')
     swap_dir = os.path.join(repo, 'mod center hd', 'swaps')
     sys.path.insert(0, swap_dir)
+    sys.path.insert(0, os.path.join(repo, 'mod center hd'))
     import swap_b1
+    import paths
 
     work = args.work or os.path.join(os.environ.get('TEMP', '/tmp'), 'opencode', 'b3_to_b1_work')
     os.makedirs(work, exist_ok=True)
@@ -75,10 +79,21 @@ def main():
 
     # 2. Instalar (comprimir + padding + round-trip + gestion mods)
     print('>>> Instalando mod %s...' % args.mod)
-    pads = (swap_b1.PAD_GEOM, swap_b1.PAD_TEX)
+    # padding al tamanio REAL del slot destino (--afs B1); sin AFS usa el
+    # default de Tenshinhan (puede quedar corto en otros slots -> tex rota)
+    afs_b1 = args.afs or paths.find_b1_afs()
     geom_path, tex_path = swap_b1.install(
         comp, dec, geom_data, tex_data, (args.dest, args.tex), args.mod,
-        mods_root, pads=pads)
+        mods_root, afs_path=afs_b1,
+        manifest={
+            'name': 'Port B3 -> B1 (%s)' % os.path.basename(args.awo_b3),
+            'description': 'Port de modelo B3 HD a slot B1 HD (geom %d / tex %d).' % (args.dest, args.tex),
+            'author': 'NovaPowers',
+            'version': '1.0',
+            'type': 'port_b3',
+            'source': os.path.basename(args.awo_b3),
+            'target': '%d/%d' % (args.dest, args.tex),
+        })
     print('Mod instalado y ACTIVO: %s' % args.mod)
     print('  %s' % geom_path)
     print('  %s' % tex_path)

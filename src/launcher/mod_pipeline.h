@@ -40,6 +40,16 @@ struct ModChar {
 
 class ModPipeline {
  public:
+  ModPipeline() = default;
+  ~ModPipeline();
+
+  // Joins the worker thread if one is running. Safe to call multiple times.
+  // MUST be called before the owner is destroyed: a joinable std::thread
+  // destroyed would call std::terminate (this crashed the launcher on Play
+  // whenever a pipeline op had been started and the self-deleting dialog was
+  // torn down).
+  void Shutdown();
+
   // Reads the cached catalog from disk. Returns false if missing.
   bool LoadCatalog();
 

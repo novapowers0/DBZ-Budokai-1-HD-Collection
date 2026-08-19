@@ -6,6 +6,7 @@
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
+#include <rex/filesystem/afs.h>
 #include <rex/runtime.h>
 #include <rex/logging.h>
 #include <rex/system/function.h>
@@ -137,8 +138,29 @@ public:
         if (!launcher_dialog_) {
             launcher_dialog_ = new dbz1::launcher::LauncherDialog(
                 drawer, [this]() {
+                    // The dialog self-deletes right after this callback returns
+                    // (ImGuiDialog::Draw -> delete this). Join any in-flight
+                    // model-pipeline worker FIRST: destroying the dialog (and
+                    // its ModPipeline member) while the worker thread is still
+                    // joinable would call std::terminate.
+                    if (launcher_dialog_) {
+                        launcher_dialog_->ShutdownPipeline();
+                    }
                     launcher_dialog_ = nullptr;
-                    ReXApp::LaunchModule();
+                    try {
+                        // The mod pipeline (run as a separate python process) may
+                        // have written new mods / toggled enable states since the
+                        // runtime last scanned the mods folder. Force a rescan so
+                        // the game boots with the on-disk mod state instead of the
+                        // stale one captured when the launcher started (otherwise a
+                        // mod installed then "Play" pressed would be ignored).
+                        rex::filesystem::AfsResetModCache();
+                        ReXApp::LaunchModule();
+                    } catch (const std::exception& e) {
+                        REXLOG_ERROR("dbz1: exception in Play handler: {}", e.what());
+                    } catch (...) {
+                        REXLOG_ERROR("dbz1: unknown exception in Play handler");
+                    }
                 });
         }
 

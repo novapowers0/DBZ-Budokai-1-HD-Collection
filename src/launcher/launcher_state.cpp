@@ -6,7 +6,9 @@
 #include <rex/logging.h>
 
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_dialog.h>
+
+#include <windows.h>
+#include <commdlg.h>
 
 #include <algorithm>
 #include <cstring>
@@ -129,12 +131,47 @@ void DrawKeybind(const char* label, std::string& cvar_value) {
   }
 }
 
+// Shows a native Windows "open file" dialog (GetOpenFileNameW) and returns the
+// selected path, or an empty string if cancelled. Runs synchronously on the UI
+// thread. The bundled SDL3 is built with the dummy dialog driver, so
+// SDL_ShowOpenFileDialog never shows a real dialog — this native path is
+// reliable on Windows.
+std::string ShowNativeOpenFileDialog(const char* filter_label,
+                                     const char* filter_spec) {
+  OPENFILENAMEW ofn{};
+  wchar_t file[MAX_PATH] = L"";
+  ofn.lStructSize = sizeof(ofn);
+  ofn.hwndOwner = nullptr;
+  ofn.lpstrFilter = L"AFS archives (*.afs)\0*.afs\0All files (*.*)\0*.*\0";
+  ofn.lpstrFile = file;
+  ofn.nMaxFile = MAX_PATH;
+  ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+  ofn.lpstrDefExt = L"afs";
+  (void)filter_label;
+  (void)filter_spec;
+  if (GetOpenFileNameW(&ofn)) {
+    int len = WideCharToMultiByte(CP_UTF8, 0, ofn.lpstrFile, -1, nullptr, 0,
+                                  nullptr, nullptr);
+    if (len > 1) {
+      std::string path(len - 1, '\0');
+      WideCharToMultiByte(CP_UTF8, 0, ofn.lpstrFile, -1, &path[0], len,
+                          nullptr, nullptr);
+      return path;
+    }
+  }
+  return std::string();
+}
+
 }  // namespace
 
 namespace dbz1::launcher {
 
 LauncherDialog::LauncherDialog(rex::ui::ImGuiDrawer* drawer, std::function<void()> on_play)
     : ImGuiDialog(drawer), on_play_(std::move(on_play)) {}
+
+void LauncherDialog::ShutdownPipeline() {
+  mod_pipeline_.Shutdown();
+}
 
 void LauncherDialog::OnDraw(ImGuiIO& io) {
   // Center the launcher panel on the actual window and keep it within bounds,
@@ -473,30 +510,6 @@ ImVec4 ModTypeColor(const std::string& type) {
 
 }  // namespace
 
-// SDL file-dialog callback: writes the picked AFS path into the settings cvar
-// and updates the on-screen buffer. `userdata` is the LauncherDialog.
-void LauncherDialog::AfsDialogCallback(void* userdata,
-                                       const char* const* filelist,
-                                       int /*filter*/) {
-  auto* dlg = static_cast<LauncherDialog*>(userdata);
-  if (!dlg || !filelist || !filelist[0]) {
-    return;
-  }
-  const std::string path = filelist[0];
-  if (dlg->afs_dialog_target_ == 1) {
-    dbz1::settings::SetAfsB1Path(path);
-    std::memcpy(dlg->afs_b1_buf_, path.c_str(),
-                std::min(path.size(), sizeof(dlg->afs_b1_buf_) - 1));
-    dlg->afs_b1_buf_[std::min(path.size(), sizeof(dlg->afs_b1_buf_) - 1)] = '\0';
-  } else if (dlg->afs_dialog_target_ == 2) {
-    dbz1::settings::SetAfsB3Path(path);
-    std::memcpy(dlg->afs_b3_buf_, path.c_str(),
-                std::min(path.size(), sizeof(dlg->afs_b3_buf_) - 1));
-    dlg->afs_b3_buf_[std::min(path.size(), sizeof(dlg->afs_b3_buf_) - 1)] = '\0';
-  }
-  dlg->afs_dialog_target_ = 0;
-}
-
 void LauncherDialog::DrawModsTab() {
   ImGui::BeginChild("##mods_settings", ImVec2(0, -40), true);
 
@@ -669,8 +682,7 @@ void LauncherDialog::DrawModPipelineTab() {
     ImGui::Text("%s", label);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(360);
-    if (ImGui::InputText(id, buf, bufsz,
-                         ImGuiInputTextFlags_EnterReturnsTrue)) {
+    if (ImGui::InputText(id, buf, bufsz)) {
       if (dialog_target == 1) {
         dbz1::settings::SetAfsB1Path(buf);
       } else {
@@ -679,27 +691,38 @@ void LauncherDialog::DrawModPipelineTab() {
     }
     ImGui::SameLine();
     if (ImGui::Button(("Buscar##" + std::string(id)).c_str())) {
-      afs_dialog_target_ = dialog_target;
-      // The filters array must outlive the async dialog call; store in a
-      // member-safe way by using a static (the dialog resolves synchronously
-      // enough in practice on Windows).
-      static const SDL_DialogFileFilter filters[] = {
-          {"AFS archives", "afs"},
-      };
-      SDL_ShowOpenFileDialog(&LauncherDialog::AfsDialogCallback, this, nullptr,
-                             filters, 1, nullptr, false);
+      // Native Windows file dialog (the bundled SDL3 uses the dummy dialog
+      // driver, so SDL_ShowOpenFileDialog would never open one). Runs
+      // synchronously on the UI thread, so no thread-safety concerns.
+      const std::string path = ShowNativeOpenFileDialog(
+          "AFS archives (*.afs)", "*.afs");
+      if (!path.empty()) {
+        std::memcpy(buf, path.c_str(), std::min(path.size(), bufsz - 1));
+        buf[std::min(path.size(), bufsz - 1)] = '\0';
+        if (dialog_target == 1) {
+          dbz1::settings::SetAfsB1Path(path);
+        } else {
+          dbz1::settings::SetAfsB3Path(path);
+        }
+      }
     }
   };
 
-  draw_afs_row("AFS B1 HD (data_sp/us/fr/en/ge/it):", "##afs_b1", afs_b1_buf_,
+  draw_afs_row("AFS B1 HD (data_us/sp/fr/en/ge/it):", "##afs_b1", afs_b1_buf_,
                sizeof(afs_b1_buf_), 1);
   draw_afs_row("AFS B3 HD (data_cmn.afs):", "##afs_b3", afs_b3_buf_,
                sizeof(afs_b3_buf_), 2);
   if (ImGui::Button("Usar ubicaciones por defecto", ImVec2(220, 0))) {
+    // Clear the custom paths (empty = autodeteccion: data_us.afs del B1 y
+    // data_cmn.afs del B3) and regenerate the catalog with them.
     dbz1::settings::SetAfsB1Path("");
     dbz1::settings::SetAfsB3Path("");
     afs_b1_buf_[0] = '\0';
     afs_b3_buf_[0] = '\0';
+    catalog_load_attempted_ = false;
+    if (!mod_pipeline_.IsRunning()) {
+      mod_pipeline_.ScanCharacters();
+    }
   }
   ImGui::SameLine();
   ImGui::TextDisabled("El catalogo se regenera con las rutas elegidas.");
@@ -805,7 +828,7 @@ void LauncherDialog::DrawModPipelineTab() {
         }
       }
       if (pipeline_b1_src_idx_ >= (int)swap_src_idx.size()) pipeline_b1_src_idx_ = -1;
-      if (pipeline_b1_dst_idx_ >= (int)swap_dst_idx.size()) pipeline_b1_dst_idx_ = -1;
+      if (pipeline_swap_dst_idx_ >= (int)swap_dst_idx.size()) pipeline_swap_dst_idx_ = -1;
 
       ImGui::Text("Origen");
       ImGui::SameLine();
@@ -827,13 +850,13 @@ void LauncherDialog::DrawModPipelineTab() {
       ImGui::Text("Destino");
       ImGui::SameLine();
       ImGui::SetNextItemWidth(320);
-      if (ImGui::BeginCombo("##swap_dst", pipeline_b1_dst_idx_ >= 0
-                                ? b1[swap_dst_idx[pipeline_b1_dst_idx_]].DisplayName().c_str()
+      if (ImGui::BeginCombo("##swap_dst", pipeline_swap_dst_idx_ >= 0
+                                ? b1[swap_dst_idx[pipeline_swap_dst_idx_]].DisplayName().c_str()
                                 : "Selecciona...")) {
         for (int i = 0; i < (int)swap_dst_idx.size(); ++i) {
-          const bool selected = (pipeline_b1_dst_idx_ == i);
+          const bool selected = (pipeline_swap_dst_idx_ == i);
           if (ImGui::Selectable(b1[swap_dst_idx[i]].DisplayName().c_str(), selected)) {
-            pipeline_b1_dst_idx_ = i;
+            pipeline_swap_dst_idx_ = i;
           }
           if (selected) ImGui::SetItemDefaultFocus();
         }
@@ -841,16 +864,16 @@ void LauncherDialog::DrawModPipelineTab() {
       }
       ImGui::SameLine();
       ImGui::TextDisabled("(%d modelos)", static_cast<int>(swap_dst_idx.size()));
-      const bool can_swap = pipeline_b1_src_idx_ >= 0 && pipeline_b1_dst_idx_ >= 0;
+      const bool can_swap = pipeline_b1_src_idx_ >= 0 && pipeline_swap_dst_idx_ >= 0;
       ImGui::BeginDisabled(!can_swap || mod_pipeline_.IsRunning());
       if (ImGui::Button("Swap B1 -> B1", ImVec2(220, 0))) {
         mod_pipeline_.SwapB1ToB1(b1[swap_src_idx[pipeline_b1_src_idx_]],
-                                 b1[swap_dst_idx[pipeline_b1_dst_idx_]]);
+                                 b1[swap_dst_idx[pipeline_swap_dst_idx_]]);
       }
       ImGui::EndDisabled();
       if (can_swap) {
         const ModChar& src = b1[swap_src_idx[pipeline_b1_src_idx_]];
-        const ModChar& dst = b1[swap_dst_idx[pipeline_b1_dst_idx_]];
+        const ModChar& dst = b1[swap_dst_idx[pipeline_swap_dst_idx_]];
         ImGui::TextDisabled("%s (geom %d)%s -> %s (slots %d/%d)%s",
                             src.DisplayName().c_str(), src.geom,
                             src.playable ? "" : "  [NO JUGABLE]",

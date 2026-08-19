@@ -2,6 +2,11 @@
 
 > Copyright (c) NovaPowers. Released under the MIT License. Firmado por NovaPowers.
 >
+> 2026-08-19 (noche). Consolidado: **✅ 4.1 Play crash = thread joinable del
+> ModPipeline destruido con el dialog (std::terminate) — FIX recompilado**.
+> **✅ 4.2 Dabura→Piccolo válido (reactivado + manifest)**.
+> **✅ 4.3 Broly→Nappa = lección 26: tex comprimido 30572 B > slot 1388 (18632 B)
+> → truncación LZX → 0xC0000005; pipeline ahora valida y falla claro**.
 > 2026-08-17. Consolidado v10-v12 + **model swaps B1→B1 100% funcionales** +
 > **✅ PORT B3 HD→B1 HD 100% FUNCIONAL (Gero, validado en runtime)** +
 > **moveset descartado (lección 13: #ACM no sustituible/generable sin RE)**.
@@ -197,15 +202,70 @@ tiene DOS consecuencias:
   numeración de bins (2575 entradas). Overlay, sin reempaquetar. Compresión:
   `xbcompress.exe /N:2048` (NUNCA /N:32), padding a 290816 B con 0x00,
   round-trip verificado con `xbdecompress.exe`.
+- ⚠️ **`tools/` necesita las DLLs junto a los .exe**: `xbcompress.exe`/
+  `xbdecompress.exe` (XDK, x86) dependen de `MSVCP71.dll`, `MSVCR71.dll` y
+  `xbdm.dll`. Sin ellas crashean con **0xC0000135** (STATUS_DLL_NOT_FOUND,
+  rc 3221225781) y TODO el pipeline (catálogo/swap/port) falla — además el
+  catálogo parece "funcionar" por caché stale en `%TEMP%\opencode\launcher_catalog`
+  (`lzx_decompress` da por bueno el `.bin` viejo aunque `xbdecompress` crashee).
+  El repo raíz ya lleva las 3 DLLs en `tools/` (19/08). Fuente de referencia:
+  `DBZ Budokai 3 HD Collection\mod center\Xbox 360 Compression - Decompression
+  tool from the XBOX Development Kit\`.
+- **⚙️ Recompilar la SDK (19/08)**: el proyecto enlaza la SDK pre-compilada en
+  `rexglue/` (`rexruntime.lib`/`rexruntime.dll`). `rex_app.cpp` se compila en el
+  target dbz1 desde `rexglue/share/rexglue/rex_app.cpp` (copia instalada) — si
+  se edita `rexglue-sdk/src/ui/rex_app.cpp` hay que copiarlo a esa ruta. Los
+  cambios de `rexglue-sdk/src/filesystem/afs.cpp` (p. ej. `AfsResetModCache`)
+  requieren reconstruir la SDK: `cmake --build rexglue-sdk/out/build/win-amd64
+  --target rexruntime --config Release` + copiar `out/win-amd64/Release/
+  rexruntime.dll` a `rexglue/bin/` y `out/build/win-amd64-release/`.
+- **Bug UI "Buscar" AFS (19/08)**: la causa raíz es que **la `SDL3-static.lib`
+  del bundle se compiló con el driver DUMMY de diálogo** (`SDL_DIALOG OFF`):
+  `SDL_ShowOpenFileDialog` llama al callback con NULL al instante y **nunca abre
+  un diálogo nativo** (verificado: ninguna SDL3-static.lib tiene
+  `SDL_Windows_ShowFileDialog`/`Comdlg32.dll`/`GetOpenFileNameW`/`IFileOpenDialog`).
+  **Corregido**: el botón "Buscar" ya NO usa SDL; usa **`GetOpenFileNameW`
+  (commdlg) nativo de Windows**, síncrono en el hilo de UI
+  (`ShowNativeOpenFileDialog` en `launcher_state.cpp`). Además se quitaron
+  `ImGuiInputTextFlags_EnterReturnsTrue` de los campos AFS (commitean en cada
+  edición) y `RunAsync` cita cada arg (rutas con espacios, p. ej. "PROYECTOS IA").
+  "Usar ubicaciones por defecto" ahora regenera el catálogo con las rutas
+  por defecto. **Autodetección estandarizada (19/08)**: B1 = `data_us.afs`,
+  B3 = `data_cmn.afs` (antes prefería `data_sp.afs`).
+- **⚠️ `_popen` + `"python"` citado = WinError 123 (19/08, validado)**: si el
+  comando de `RunAsync` cita el ejecutable de python (`"python" "script" ...`),
+  el `_popen` de MSVC falla con `El nombre de archivo, el nombre de directorio
+  o la sintaxis de la etiqueta del volumen no son correctos` (ERROR_INVALID_NAME,
+  exit 1) — reproducible con un programa C++ de test, pero `subprocess.run(
+  shell=True)` de Python y `cmd /c` SÍ lo ejecutan (diferencia de `_popen`).
+  **Solución**: NO citar `python` (solo se cita si `DBZ1_PYTHON` contiene
+  espacios); citar siempre el script y cada arg. Validado: `python "script"
+  "port" ...` exit 0 con `_popen`.
+- **⚠️ Bug destino incorrecto en Port/Swap (19/08)**: `pipeline_b1_dst_idx_`
+  estaba COMPARTIDO entre el combo de destino del **Port** (índice directo en
+  `b1[]`) y el del **Swap** (índice en la lista FILTRADA `swap_dst_idx[]`, solo
+  personajes con `geom != 0`). Al seleccionar el destino en un combo se corrompía
+  el índice del otro → el Port escribía al personaje equivocado (Dabura→slot
+  1766/Piccolo en vez de Tenshinhan Joven 363/364) y el Swap podía colgarse
+  (índice fuera de rango de la lista filtrada). **Corregido**: se separó en
+  `pipeline_b1_dst_idx_` (Port) y `pipeline_swap_dst_idx_` (Swap) en
+  `launcher_state.{h,cpp}`. Regla: cada combo con lista distinta debe usar su
+  propia variable de selección.
 - Activación: **archivo `.disabled` DENTRO de la carpeta del mod**
   (`mods/foo/.disabled`). NO renombrar a `foo.disabled`. `src/mods.cpp` devuelve
   `ModInfo{name,enabled}` y normaliza; `rexglue-sdk/afs.cpp` no los carga (la DLL
   precompilada `rexruntime.dll` no incluye el cambio de afs.cpp todavía).
-- Mods actuales: `test_chz_ps2_texfix` **activo** = **port CHZ PS2→slot TSH**
-  (2450/2451), **entra en combate SIN CRASH** (textura correcta x_351) — la
-  primera validación de reconstrucción PS2→HD completa; modelo deforme por
-  decimación voxel. `test_gero_b3_to_b1_v2` (port Gero B3→B1, **100%
-  funcional**) desactivado. `test_gero_moveset_19` (Gero v2 + #CSK X19G 2448)
+- Mods actuales (19/08): `port_XDBR_BODY_176_to_1766` (port Dabura→slot
+  1766/1767/Piccolo) **activo con manifest** (port VÁLIDO: geom comp 73204 ≤
+  160500, tex comp 23470 ≤ 33702). `port_XBRL_BODY_119_to_1387` (Broly→Nappa)
+  **desactivado** — port INVIABLE: tex comprimido 30572 B > slot 1388 (18632 B)
+  → truncación → crash (lección 26; el pipeline ahora valida y falla con error
+  claro). `test_gero_b3_to_b1_v2` (port Gero B3→B1, **100% funcional**)
+  **desactivado**. `test_chz_ps2_texfix` (port CHZ PS2→slot TSH
+  2450/2451, **entra en combate SIN CRASH** con textura correcta x_351 — primera
+  validación de reconstrucción PS2→HD completa; modelo deforme por decimación
+  voxel) **desactivado**.
+  `test_gero_moveset_19` (Gero v2 + #CSK X19G 2448)
   y `test_gero_on_a19` (Gero en slot A19) → **descartados** (crash/moveset no
   viable, ver lección 13); test_a19_on_tsh = swap Android 19 (X19G), **100%
   funcional** (geom `49_u.bin` + tex `48_u.bin`) → desactivado;
@@ -451,6 +511,26 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     Para un port fiel: refinar descriptores por-part reales + decimación
     más conservadora. El swap nativo B1→B1 y el port B3→B1 siguen siendo
     las vías de mejor calidad.
+26. **🔴 EL COMPRIMIDO DEBE CABER EN EL entry_size DEL SLOT (19/08, VALIDADO)**:
+    el runtime sirve el override leyendo `entry_size` bytes de la entrada
+    original del AFS (no el archivo completo). Si el bin COMPRIMIDO (lzx) de
+    un port/swap supera ese tamaño, el stream se TRUNCA → descompresión
+    corrupta → **crash 0xC0000005** al cargar el personaje. El padding del
+    archivo a un tamaño mayor NO ayuda (el juego solo lee entry_size).
+    Ejemplo: Broly B3→Nappa — tex comprimido 30572 B vs slot 1388 (18632 B) →
+    crash; geom 85030 ≤ 283952 → OK. Gero→TSH funcionó porque su tex (24538 B)
+    cabía en el slot 2451 (33504 B). `swap_b1.install()` AHORA valida esto y
+    falla con error claro en vez de instalar un mod roto. Para portar un
+    personaje con muchas texturas, elegir un destino con slot tex ≥ comprimido
+    (Piccolo 1767=33702, Goku 1758=49574, Cell 357=49774) o reducir el AZT.
+27. **Thread joinable destruido = std::terminate (19/08, VALIDADO)**: el
+    `LauncherDialog` se auto-destruye al pulsar Play (`ImGuiDialog::Draw` →
+    `delete this`). Su miembro `ModPipeline` tiene un `std::thread worker_`
+    que queda joinable tras cada operación (catalog/port/swap) → al destruir el
+    dialog, el destructor de `std::thread` llama `std::terminate` (crash
+    determinista "Play tras abrir Mods"). Fix: `ModPipeline::Shutdown()`/destructor
+    hacen join + se llama antes de destruir el dialog en el callback de Play +
+    try/catch en el worker y en el launch diferido. Recompilado 19/08 15:58.
 
 ---
 

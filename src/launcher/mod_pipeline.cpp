@@ -8,6 +8,7 @@
 #include "settings.h"
 
 #include <cstdio>
+#include <exception>
 #include <fstream>
 #include <sstream>
 
@@ -62,6 +63,20 @@ int ParseIntField(const std::string& s) {
 }
 
 }  // namespace
+
+ModPipeline::~ModPipeline() {
+  Shutdown();
+}
+
+void ModPipeline::Shutdown() {
+  // Join any in-flight worker before this object (or its owner) is destroyed.
+  // The worker only writes to members via AppendOutput and never waits on
+  // anything else, so joining from the UI thread is safe (it just waits for
+  // the python process to finish writing its output).
+  if (worker_.joinable()) {
+    worker_.join();
+  }
+}
 
 bool ModPipeline::LoadCatalog() {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -137,31 +152,47 @@ void ModPipeline::RunAsync(const std::vector<std::string>& args) {
   }
 
   // Build the command line. Output is redirected to stderr too so both
-  // streams end up in the pipe.
-  std::string cmd = Quote(PythonExecutable()) + " " + Quote(PipelineScript().string());
+  // streams end up in the pipe. The python executable itself is only quoted if
+  // it contains spaces (a DBZ1_PYTHON path); a bare "python" must NOT be
+  // quoted, because MSVC _popen then fails with ERROR_INVALID_NAME (WinError
+  // 123). The script path and each argument ARE quoted so paths containing
+  // spaces (e.g. "PROYECTOS IA") survive.
+  const std::string py = PythonExecutable();
+  std::string cmd = (py.find(' ') != std::string::npos) ? Quote(py) : py;
+  cmd += " " + Quote(PipelineScript().string());
   for (const std::string& a : args) {
-    cmd += " " + a;
+    cmd += " " + Quote(a);
   }
   cmd += " 2>&1";
 
   worker_ = std::thread([this, cmd]() {
-    FILE* pipe = _popen(cmd.c_str(), "r");
-    if (!pipe) {
-      AppendOutput("ERROR: no se pudo lanzar python.\n");
+    try {
+      FILE* pipe = _popen(cmd.c_str(), "r");
+      if (!pipe) {
+        AppendOutput("ERROR: no se pudo lanzar python.\n");
+        running_.store(false);
+        return;
+      }
+      char buf[512];
+      size_t n;
+      while ((n = fread(buf, 1, sizeof(buf) - 1, pipe)) > 0) {
+        buf[n] = '\0';
+        AppendOutput(std::string(buf, n));
+      }
+      const int rc = _pclose(pipe);
+      if (rc != 0) {
+        AppendOutput("\n[exit code " + std::to_string(rc) + "]\n");
+      }
       running_.store(false);
-      return;
+    } catch (const std::exception& e) {
+      REXLOG_ERROR("dbz1: pipeline worker exception: {}", e.what());
+      AppendOutput("\n[ERROR interno del pipeline: " + std::string(e.what()) + "]\n");
+      running_.store(false);
+    } catch (...) {
+      REXLOG_ERROR("dbz1: pipeline worker unknown exception");
+      AppendOutput("\n[ERROR interno del pipeline: excepción desconocida]\n");
+      running_.store(false);
     }
-    char buf[512];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf) - 1, pipe)) > 0) {
-      buf[n] = '\0';
-      AppendOutput(std::string(buf, n));
-    }
-    const int rc = _pclose(pipe);
-    if (rc != 0) {
-      AppendOutput("\n[exit code " + std::to_string(rc) + "]\n");
-    }
-    running_.store(false);
   });
 }
 
