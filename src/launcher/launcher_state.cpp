@@ -522,10 +522,7 @@ void LauncherDialog::DrawModsTab() {
   const std::vector<dbz1::ModInfo> mods = dbz1::ListMods();
   if (mods.empty()) {
     ImGui::TextDisabled("No mods found in the 'mods' folder next to the executable.");
-    ImGui::EndChild();
-    return;
-  }
-
+  } else {
   // Summary line.
   int enabled_count = 0;
   for (const dbz1::ModInfo& mod : mods) {
@@ -650,6 +647,7 @@ void LauncherDialog::DrawModsTab() {
     ImGui::SameLine();
     ImGui::TextDisabled("El texto se guarda en %s/manifest.txt",
                         edit_mod_name_.c_str());
+  }
   }
 
   ImGui::Separator();

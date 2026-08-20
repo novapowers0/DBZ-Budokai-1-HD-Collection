@@ -7,6 +7,11 @@
 > **✅ 4.2 Dabura→Piccolo válido (reactivado + manifest)**.
 > **✅ 4.3 Broly→Nappa = lección 26: tex comprimido 30572 B > slot 1388 (18632 B)
 > → truncación LZX → 0xC0000005; pipeline ahora valida y falla claro**.
+> 2026-08-20. **✅ v0.4.1 Fix launcher: Model pipeline oculto sin mods** — 
+> `DrawModsTab` hacía `return` temprano si la carpeta `mods/` estaba vacía, lo
+> que ocultaba el Model pipeline (Port/Swap) → no se podía crear el primer mod
+> desde el launcher. Ahora el aviso se muestra pero el pipeline se dibuja
+> SIEMPRE (Port/Swap habilitados aunque no exista ningún mod).
 > 2026-08-20. **✅ 5.x Fix piel sin color en ports (Dabura/Buu)**: la causa era
 > la piel roja del B3 modelada con MATERIAL (+0x34==5) sobre textura GRIS, no
 > con textura roja → el B1 la mostraba descolorida. Nueva opción `--tint-skin`
