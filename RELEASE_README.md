@@ -14,6 +14,11 @@ de tu copia legal.
 - `rexgpu-xenos.dll` — plugin GPU (Xenos)
 - `amd_fidelityfx_dx12.dll` — runtime FidelityFX (CAS/FSR/FSR2/FSR3, obligatorio)
 - `TracyClient.dll` — profiling (requerido por el runtime)
+- `mod center hd/` — **toolchain del Model pipeline** (port B3→B1 y swap B1→B1).
+  Incluye solo lo necesario en runtime (orquestador + scripts de port/swap +
+  catálogo de personajes + tabla de colores de piel).
+- `tools/` — herramientas de compresión LZX (`xbcompress.exe` +
+  `xbdecompress.exe` + DLLs) usadas por el pipeline.
 - `RELEASE_README.md` — este archivo
 
 ## Novedades (v0.5.0)
@@ -61,6 +66,34 @@ replicada en todos los `data_*.afs` de personaje, así que **puede consumir
 bastante espacio en disco** (~5–30 MB por mod, y con varios mods es fácil
 acumular cientos de MB). Activa solo los que uses y elimina los que ya no
 necesites. Detalle: `docs/tutoriales/TUTORIAL_MODS.md`.
+
+### Dos niveles de "mods"
+
+1. **Aplicar/cargar mods ya creados** (pestaña Mods: listar, activar/desactivar,
+   editar descripción) — **funciona siempre**, sin dependencias externas. El
+   runtime (`rexruntime.dll`) y el launcher leen la carpeta `mods/` que crees
+   junto a `dbz1.exe` (junto a `assets/`).
+2. **Crear mods con el Model pipeline** (pestaña Mods → *Model pipeline*:
+   *Scan characters*, *Port B3→B1* y *Swap B1→B1*) — **requiere**:
+
+   - **Python 3 instalado** y accesible desde la línea de comandos (el launcher
+     invoca `python`). El bundle ya trae la toolchain (`mod center hd/` +
+     `tools/`), pero **no** incluye Python.
+   - Los **archivos del juego** (`assets/`), porque el pipeline extrae los
+     modelos de los AFS reales.
+   - Para **Port B3→B1**, los archivos del **B3** (`data_cmn.afs`). El
+     pipeline lo localiza en la carpeta hermana `DBZ Budokai 3 HD
+     Collection/us/data_cmn.afs` o vía la variable de entorno `DBZ3_ROOT`.
+
+   Si *Scan characters* falla con un error de "no encontrado" o de python,
+   revisa que: (a) `mod center hd/` y `tools/` estén junto a `dbz1.exe` (no
+   los borres), (b) `python` esté instalado, y (c) `assets/` tenga los AFS.
+   El log del pipeline se escribe en `pipeline_cmd.log` junto al exe.
+
+> **IMPORTANTE**: "los mods no funcionan" casi siempre significa que el usuario
+> solo tiene el `dbz1.exe` suelto. Todo el bloque de mods (aplicar **y**
+> crear) vive junto a `dbz1.exe`: extrae el zip completo en una carpeta y no
+> muevas solo el `.exe`.
 
 ## Bugs conocidos (blackouts)
 

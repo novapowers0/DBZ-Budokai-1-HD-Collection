@@ -2,6 +2,18 @@
 
 > Copyright (c) NovaPowers. Released under the MIT License. Firmado por NovaPowers.
 >
+> 2026-08-20. **✅ v0.5.1 El bundle del release ahora incluye la toolchain del
+> Model pipeline**: `mod center hd/` (runtime subset: launcher_mod_pipeline.py,
+> paths.py, characters_db.py, skin_colors.py, swaps/swap_b1.py,
+> conversores/install_b3_to_b1.py + port_b3_to_b1_v2.py,
+> analizadores/extract_amb_awo.py) + `tools/` (xbcompress + DLLs). Antes el
+> zip NO llevaba "mod center hd" → el Model pipeline (Port/Swap/Scan) fallaba
+> para el usuario (no encontraba el script) y parecía que "los mods no
+> funcionaban". Ahora el pipeline funciona out-of-the-box (validado: catalog
+> 109 B1 + 183 B3, swap/port --dry resuelven la cadena completa desde un
+> layout empaquetado limpio). Sigue requiriendo: Python 3 instalado + assets/
+> + (para Port B3→B1) el data_cmn.afs del B3. Aplicar/cargar mods ya creados
+> sigue siendo autocontenido (sin Python). Detalle: `docs/re/SESION14_BUNDLE_PIPELINE.md`.
 > 2026-08-19 (noche). Consolidado: **✅ 4.1 Play crash = thread joinable del
 > ModPipeline destruido con el dialog (std::terminate) — FIX recompilado**.
 > **✅ 4.2 Dabura→Piccolo válido (reactivado + manifest)**.
@@ -361,6 +373,14 @@ tiene DOS consecuencias:
 
 ### Rutas portables (para salir a GitHub)
 
+- **v0.5.1 (20/08)**: el zip del release incluye el **runtime subset** de
+  `mod center hd/` (8 scripts: launcher_mod_pipeline.py, paths.py,
+  characters_db.py, skin_colors.py, swaps/swap_b1.py,
+  conversores/install_b3_to_b1.py + port_b3_to_b1_v2.py,
+  analizadores/extract_amb_awo.py) + `tools/`. El resto del "mod center hd"
+  (~1.7 GB, herramienta de análisis) NO se distribuye. El pipeline corre desde
+  un layout limpio (validado: catalog/swap/port --dry). Requisitos del usuario
+  final: Python 3 + `assets/` (+ `data_cmn.afs` del B3 para Port).
 - **Nada depende de rutas de usuario** (`C:\Users\...`). Todo se deriva de
   `mod center hd/paths.py`: assets/ del repo, tools/ (xbcompress), y el
   proyecto B3 (variable `DBZ3_ROOT` o carpeta hermana).
