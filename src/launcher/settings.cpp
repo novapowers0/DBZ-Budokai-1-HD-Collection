@@ -46,6 +46,30 @@ REXCVAR_DEFINE_INT32(dbz1_frame_cap, 0, "DBZ1/Video", "Frame cap in FPS (0 = unc
     .range(0, 240)
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
 
+// Graphics backend for the GPU plugin. Persisted wrapper; forwarded to the SDK
+// gpu_backend cvar (rex_app.cpp) in ApplyUserSettingsToSdk. Read before the GPU
+// plugin loads, so it must be set at boot (kRequiresRestart).
+REXCVAR_DEFINE_STRING(dbz1_gpu_backend, "auto", "DBZ1/Video",
+                      "Graphics backend: auto (D3D12 first), d3d12 or vulkan")
+    .allowed({"auto", "d3d12", "vulkan"})
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+
+// Present upscaler (FidelityFX). Forwarded to the SDK present_effect cvar in
+// ApplyUserSettingsToSdk. FSR2/FSR3 temporal upscaling requires the FidelityFX
+// runtime built for the active backend (D3D12 in this build).
+REXCVAR_DEFINE_STRING(dbz1_present_effect, "bilinear", "DBZ1/Video",
+                      "Present upscaler: bilinear, cas, fsr, fsr2, fsr3")
+    .allowed({"bilinear", "cas", "fsr", "fsr2", "fsr3"})
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+
+// FSR quality mode, used when the present effect is fsr/fsr2/fsr3. Forwarded to
+// the SDK present_fsr_quality_mode cvar in ApplyUserSettingsToSdk.
+REXCVAR_DEFINE_STRING(dbz1_fsr_quality, "auto", "DBZ1/Video",
+                      "FSR quality mode: auto, nativeaa, quality, balanced, performance, "
+                      "ultra_performance")
+    .allowed({"auto", "nativeaa", "quality", "balanced", "performance", "ultra_performance"})
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+
 // Region (assets folder). Persisted wrapper; forwarded to the shared dbz1_region
 // (rexruntime.dll) in ApplyUserSettingsToSdk.
 REXCVAR_DEFINE_STRING(dbz1_user_region, "us", "DBZ1/Video",
@@ -327,6 +351,14 @@ void ApplyUserSettingsToSdk() {
   // Frame cap: caps the host present rate only (never the guest vblank pacing).
   SetSdkInt("frame_cap", REXCVAR_GET(dbz1_frame_cap));
 
+  // Graphics backend: forwarded to the SDK gpu_backend cvar before the GPU
+  // plugin loads (OnPreSetup -> LoadGpuPlugin). "auto" maps to D3D12 first.
+  SetSdkString("gpu_backend", REXCVAR_GET(dbz1_gpu_backend));
+
+  // Present upscaler (FidelityFX CAS/FSR/FSR2/FSR3) and its quality mode.
+  REXCVAR_SET(present_effect, REXCVAR_GET(dbz1_present_effect));
+  SetSdkString("present_fsr_quality_mode", REXCVAR_GET(dbz1_fsr_quality));
+
   // Guest video mode refresh rate: always 60 Hz. This game paces its main loop
   // by the guest vblank count, so raising it makes the game run too fast.
   REXCVAR_SET(video_mode_refresh_rate, 60.0);
@@ -381,7 +413,7 @@ void ApplyUserSettingsToSdk() {
 
   REXLOG_INFO(
       "dbz1: applied user settings -> resolution={} fullscreen={} vsync={} "
-      "anisotropic={} msaa_2x={} frame_cap={} swap_effect={} "
+      "anisotropic={} msaa_2x={} frame_cap={} swap_effect={} backend={} present_effect={} "
       "master_volume={:.2f} audio_device='{}' deadzone={:.2f} rumble={} mnk_mode={}",
       REXCVAR_GET(resolution), REXCVAR_GET(fullscreen) ? "true" : "false",
       rex::cvar::Query<bool>("vsync") ? "true" : "false",
@@ -389,6 +421,8 @@ void ApplyUserSettingsToSdk() {
       rex::cvar::Query<bool>("native_2x_msaa") ? "true" : "false",
       rex::cvar::Query<int32_t>("frame_cap"),
       rex::cvar::Query<std::string>("swap_post_effect"),
+      rex::cvar::Query<std::string>("gpu_backend"),
+      rex::cvar::Query<std::string>("present_effect"),
       rex::cvar::Query<double>("master_volume"),
       rex::cvar::Query<std::string>("audio_output_device"),
       rex::cvar::Query<double>("deadzone"),

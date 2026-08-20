@@ -12,6 +12,13 @@
 > que ocultaba el Model pipeline (Port/Swap) → no se podía crear el primer mod
 > desde el launcher. Ahora el aviso se muestra pero el pipeline se dibuja
 > SIEMPRE (Port/Swap habilitados aunque no exista ningún mod).
+> 2026-08-20. **✅ v0.5.0 Vulkan + FSR3 (FidelityFX) integrados** (lección 37):
+> la SDK se reconstruyó con `REXGLUE_USE_D3D12=ON REXGLUE_USE_VULKAN=ON
+> REXGLUE_ENABLE_FIDELITYFX=ON REXGLUE_FIDELITYFX_BACKEND=dx12`. El runtime
+> B1 ahora soporta **D3D12 y Vulkan** (selector en la pestaña Video) y
+> **upscalers FidelityFX CAS/FSR/FSR2/FSR3** (selector + calidad FSR). Base
+> para la futura versión Linux (Vulkan nativo en la SDK). Detalle:
+> `docs/re/SESION13_VULKAN_FSR.md`.
 > 2026-08-20. **✅ 5.x Fix piel sin color en ports (Dabura/Buu)**: la causa era
 > la piel roja del B3 modelada con MATERIAL (+0x34==5) sobre textura GRIS, no
 > con textura roja → el B1 la mostraba descolorida. Nueva opción `--tint-skin`
@@ -241,6 +248,43 @@ tiene DOS consecuencias:
   requieren reconstruir la SDK: `cmake --build rexglue-sdk/out/build/win-amd64
   --target rexruntime --config Release` + copiar `out/win-amd64/Release/
   rexruntime.dll` a `rexglue/bin/` y `out/build/win-amd64-release/`.
+- **⚙️ SDK con Vulkan + FSR3 (20/08, v0.5.0)**: el build actual se configura
+  con `-DREXGLUE_USE_D3D12=ON -DREXGLUE_USE_VULKAN=ON
+  -DREXGLUE_ENABLE_FIDELITYFX=ON -DREXGLUE_FIDELITYFX_BACKEND=dx12`. FidelityFX
+  se descarga por FetchContent (`_deps/fidelityfx-src`, red a
+  `github.com/rexglue/FidelityFX-SDK.git`). Al recompilar hay que copiar de
+  `rexglue-sdk/out/win-amd64/Release/` → `rexglue/bin/` y
+  `out/build/win-amd64-release/`: **`rexruntime.dll` + `rexruntime.lib`
+  (a `rexglue/lib/`) + `rexgpu-xenos.dll`**; y de `rexglue-sdk/bin/` →
+  **`amd_fidelityfx_dx12.dll`** (OBLIGATORIO junto al exe: `rexruntime.dll` lo
+  importa). Notas del build: (a) **`ffx_api_dll.rc` viene en UTF-16-LE** y
+  `llvm-rc` falla ("UTF-16 (LE) byte order mark detected") → convertirlo a
+  UTF-8 sin BOM; (b) hay warnings de `CMAKE_OBJECT_PATH_MAX` (rutas largas) en
+  FidelityFX/spirv que NO rompen el build. Selección de backend: la cvar
+  `gpu_backend` (`auto`→"any"→D3D12 primero, `d3d12`, `vulkan`) se define en
+  `rex_app.cpp` y se pasa a `LoadGpuPlugin(name, backend)`; el plugin
+  `rexgpu-xenos` elige en `plugin_main.cpp`.
+- **⚙️ FidelityFX per-backend (20/08)**: ffx-api es single-backend por build
+  (`FFX_API_BACKEND`), pero D3D12+Vulkan compilan juntos. Los presenters usan
+  guards separados: `REX_HAS_FIDELITYFX_DX12` (d3d12_presenter.cpp) y
+  `REX_HAS_FIDELITYFX_VK` (vulkan_presenter.cpp), definidos en
+  `src/ui/CMakeLists.txt` si existe el target ffx correspondiente
+  (`REX_HAS_FIDELITYFX_RUNTIME` queda solo en presenter.cpp común). Con el
+  build FidelityFX(dx12): **FSR2/FSR3 temporal solo en D3D12**; Vulkan usa
+  bilinear/CAS/FSR espacial (para FSR3 en Vulkan hay que compilar con
+  `FIDELITYFX_BACKEND=vk` — es el build Linux).
+- **🎮 Selector D3D12/Vulkan + FSR (v0.5.0, launcher)**: en la pestaña Video:
+  "Graphics backend" (`dbz1_gpu_backend`: auto/d3d12/vulkan), "Upscaler"
+  (`dbz1_present_effect`: bilinear/cas/fsr/fsr2/fsr3) y "FSR quality"
+  (`dbz1_fsr_quality`: auto/nativeaa/quality/balanced/performance/
+  ultra_performance), visibles al elegir FSR/FSR2/FSR3. Se forwardean en
+  `ApplyUserSettingsToSdk` a `gpu_backend` (SetSdkString, por nombre — no es
+  símbolo linkeable), `present_effect` (símbolo linkeable REXCVAR_SET) y
+  `present_fsr_quality_mode`. **Validado en runtime (20/08)**: D3D12 (RTX 4070
+  SUPER, DXGI adapter) y **Vulkan (instancia 1.4.357, device 1.4.341)** inician
+  sin crash; FSR3 activa la rama temporal (warning "experimental temporal
+  upscaler path"). Pendiente: verificación visual del render en juego con
+  Vulkan y con FSR3.
 - **Bug UI "Buscar" AFS (19/08)**: la causa raíz es que **la `SDL3-static.lib`
   del bundle se compiló con el driver DUMMY de diálogo** (`SDL_DIALOG OFF`):
   `SDL_ShowOpenFileDialog` llama al callback con NULL al instante y **nunca abre
@@ -668,6 +712,21 @@ Uso: `python build_awg_hd_full.py <bin_hd_base_mismo_personaje.awo> <modelo_ps2.
     mi propuesta automatica capturaba una textura beige por error. Verificar
     siempre el color real del personaje en el juego antes de confiar en la
     heuristica; la tabla curada manda.
+37. **Vulkan + FSR3 integrados (20/08, v0.5.0)**: la SDK ReXGlue ya tenía el
+    backend Vulkan y el upscaler FidelityFX de serie; faltaba activarlos. El
+    plan "Vulkan en Windows → Linux fácil" se materializó: (a) parche
+    per-backend de los guards FidelityFX en los presenters (ffx-api es
+    single-backend por build; `REX_HAS_FIDELITYFX_DX12`/`REX_HAS_FIDELITYFX_VK`
+    en `src/ui/CMakeLists.txt`); (b) rebuild de la SDK con D3D12+Vulkan+
+    FidelityFX(dx12); (c) cvar `gpu_backend` en `rex_app.cpp` (auto→"any"→D3D12
+    primero) pasado a `LoadGpuPlugin(name, backend)`; (d) cvars de usuario
+    `dbz1_gpu_backend`/`dbz1_present_effect`/`dbz1_fsr_quality` + selectores en
+    la pestaña Video. **Validado en runtime**: D3D12 y Vulkan inician sin crash
+    (RTX 4070 SUPER); FSR3 activa la rama temporal. FSR2/FSR3 temporal SOLO en
+    D3D12 con este build (FidelityFX backend dx12); Vulkan usa CAS/FSR espacial.
+    Para FSR3 en Vulkan (build Linux) recompilar con `FIDELITYFX_BACKEND=vk`.
+    Nota de build: el `.rc` de ffx-api viene en UTF-16-LE → llvm-rc falla;
+    convertir a UTF-8 sin BOM. Base para la futura versión Linux.
 
 ---
 
