@@ -10,10 +10,19 @@ de tu copia legal.
 ## Contenido
 
 - `dbz1.exe` — recompilador + launcher + sistema de mods
-- `rexruntime.dll` — runtime ReXGlue
+- `rexruntime.dll` — runtime ReXGlue (D3D12 + Vulkan + FidelityFX)
 - `rexgpu-xenos.dll` — plugin GPU (Xenos)
+- `amd_fidelityfx_dx12.dll` — runtime FidelityFX (CAS/FSR/FSR2/FSR3, obligatorio)
 - `TracyClient.dll` — profiling (requerido por el runtime)
 - `RELEASE_README.md` — este archivo
+
+## Novedades (v0.5.0)
+
+- **Backend Vulkan opcional**: en la pestaña **Video** del launcher puedes
+  elegir *Graphics backend* entre **Auto (D3D12)**, **D3D12** y **Vulkan**.
+- **Upscalers FidelityFX**: *Upscaler* (Bilinear / CAS / FSR 1 / FSR 2 / FSR 3)
+  con calidad ajustable (*FSR quality*). FSR 2/3 (temporal) requieren el
+  backend **D3D12** en esta build; en Vulkan se usan CAS/FSR espaciales.
 
 ## Cómo instalar y jugar
 
