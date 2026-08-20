@@ -34,6 +34,7 @@ REXCVAR_DECLARE(int32_t, dbz1_swap_effect);
 REXCVAR_DECLARE(std::string, dbz1_gpu_backend);
 REXCVAR_DECLARE(std::string, dbz1_present_effect);
 REXCVAR_DECLARE(std::string, dbz1_fsr_quality);
+REXCVAR_DECLARE(double, dbz1_cas_sharpness);
 REXCVAR_DECLARE(int32_t, dbz1_frame_cap);
 REXCVAR_DECLARE(std::string, dbz1_user_region);
 REXCVAR_DECLARE(int32_t, dbz1_language);
@@ -349,8 +350,8 @@ void LauncherDialog::DrawVideoTab() {
 
   // Graphics backend. The SDK build ships both D3D12 and Vulkan; D3D12 is the
   // default and hosts the FidelityFX temporal upscaler (FSR2/FSR3) in this
-  // build, while Vulkan is available for validation/portability.
-  const char* backend_options[] = {"Auto (D3D12)", "D3D12", "Vulkan"};
+  // build, while Vulkan is experimental (functional but slower in ReXGlue).
+  const char* backend_options[] = {"Auto (D3D12)", "D3D12", "Vulkan [Experimental]"};
   const char* backend_values[] = {"auto", "d3d12", "vulkan"};
   std::string backend = REXCVAR_GET(dbz1_gpu_backend);
   int backend_idx = 0;
@@ -363,7 +364,8 @@ void LauncherDialog::DrawVideoTab() {
   if (ImGui::Combo("Graphics backend", &backend_idx, backend_options, 3)) {
     REXCVAR_SET(dbz1_gpu_backend, std::string(backend_values[backend_idx]));
   }
-  ImGui::TextDisabled("D3D12 (default) or Vulkan graphics backend. Restart required.");
+  ImGui::TextDisabled("D3D12 (default) or Vulkan graphics backend. Vulkan is experimental "
+                      "(slower, may hitch). Restart required.");
 
   // Present upscaler (FidelityFX). Applied to the final swap image at present
   // time; requires a game restart.
@@ -381,8 +383,17 @@ void LauncherDialog::DrawVideoTab() {
   if (ImGui::Combo("Upscaler", &effect_idx, effect_options, 5)) {
     REXCVAR_SET(dbz1_present_effect, std::string(effect_values[effect_idx]));
   }
-  ImGui::TextDisabled("Fullscreen upscaling. FSR 2/3 (temporal) need the FidelityFX runtime "
-                      "on the D3D12 backend. Restart required.");
+  ImGui::TextDisabled("Fullscreen upscaling. FSR 2/3 (temporal) are experimental: inputs are "
+                      "synthesized and history resets each frame. Restart required.");
+
+  // CAS sharpness, only meaningful when the CAS upscaler is selected.
+  if (effect_idx == 1) {
+    float cas_sharpness = static_cast<float>(REXCVAR_GET(dbz1_cas_sharpness));
+    if (ImGui::SliderFloat("CAS sharpness", &cas_sharpness, 0.0f, 1.0f, "%.2f")) {
+      REXCVAR_SET(dbz1_cas_sharpness, static_cast<double>(cas_sharpness));
+    }
+    ImGui::TextDisabled("Additional CAS sharpening applied after upscaling. Restart required.");
+  }
 
   // FSR quality mode, only meaningful for the temporal/resolution FSR modes.
   if (effect_idx >= 2) {

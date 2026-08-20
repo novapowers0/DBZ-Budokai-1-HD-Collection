@@ -70,6 +70,13 @@ REXCVAR_DEFINE_STRING(dbz1_fsr_quality, "auto", "DBZ1/Video",
     .allowed({"auto", "nativeaa", "quality", "balanced", "performance", "ultra_performance"})
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
+// Additional CAS sharpness, used when the present effect is cas. Forwarded to
+// the SDK present_cas_additional_sharpness cvar in ApplyUserSettingsToSdk.
+REXCVAR_DEFINE_DOUBLE(dbz1_cas_sharpness, 0.0, "DBZ1/Video",
+                      "Additional CAS sharpness in [0, 1]")
+    .range(0.0, 1.0)
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+
 // Region (assets folder). Persisted wrapper; forwarded to the shared dbz1_region
 // (rexruntime.dll) in ApplyUserSettingsToSdk.
 REXCVAR_DEFINE_STRING(dbz1_user_region, "us", "DBZ1/Video",
@@ -358,6 +365,7 @@ void ApplyUserSettingsToSdk() {
   // Present upscaler (FidelityFX CAS/FSR/FSR2/FSR3) and its quality mode.
   REXCVAR_SET(present_effect, REXCVAR_GET(dbz1_present_effect));
   SetSdkString("present_fsr_quality_mode", REXCVAR_GET(dbz1_fsr_quality));
+  SetSdkDouble("present_cas_additional_sharpness", REXCVAR_GET(dbz1_cas_sharpness));
 
   // Guest video mode refresh rate: always 60 Hz. This game paces its main loop
   // by the guest vblank count, so raising it makes the game run too fast.

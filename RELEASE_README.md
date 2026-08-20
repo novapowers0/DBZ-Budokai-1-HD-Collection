@@ -18,11 +18,17 @@ de tu copia legal.
 
 ## Novedades (v0.5.0)
 
-- **Backend Vulkan opcional**: en la pestaña **Video** del launcher puedes
-  elegir *Graphics backend* entre **Auto (D3D12)**, **D3D12** y **Vulkan**.
+- **Backend Vulkan opcional [Experimental]**: en la pestaña **Video** del
+  launcher puedes elegir *Graphics backend* entre **Auto (D3D12)**,
+  **D3D12** y **Vulkan [Experimental]**. Vulkan funciona (instancia/device
+  crean sin crash) pero es más lento y puede tener tirones — es la base para
+  la futura versión Linux.
 - **Upscalers FidelityFX**: *Upscaler* (Bilinear / CAS / FSR 1 / FSR 2 / FSR 3)
-  con calidad ajustable (*FSR quality*). FSR 2/3 (temporal) requieren el
-  backend **D3D12** en esta build; en Vulkan se usan CAS/FSR espaciales.
+  con calidad ajustable (*FSR quality*). **CAS** añade el control **CAS
+  sharpness** (nitidez adicional 0-1). FSR 2/3 (temporal) son **experimentales**
+  (inputs de profundidad/movimiento sintetizados y sin acumulación temporal);
+  corren en el backend **D3D12** de esta build; en Vulkan se usan CAS/FSR
+  espaciales.
 
 ## Cómo instalar y jugar
 

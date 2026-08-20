@@ -274,17 +274,24 @@ tiene DOS consecuencias:
   bilinear/CAS/FSR espacial (para FSR3 en Vulkan hay que compilar con
   `FIDELITYFX_BACKEND=vk` — es el build Linux).
 - **🎮 Selector D3D12/Vulkan + FSR (v0.5.0, launcher)**: en la pestaña Video:
-  "Graphics backend" (`dbz1_gpu_backend`: auto/d3d12/vulkan), "Upscaler"
-  (`dbz1_present_effect`: bilinear/cas/fsr/fsr2/fsr3) y "FSR quality"
-  (`dbz1_fsr_quality`: auto/nativeaa/quality/balanced/performance/
-  ultra_performance), visibles al elegir FSR/FSR2/FSR3. Se forwardean en
+  "Graphics backend" (`dbz1_gpu_backend`: auto/d3d12/**vulkan [Experimental]**),
+  "Upscaler" (`dbz1_present_effect`: bilinear/cas/fsr/fsr2/fsr3), "CAS
+  sharpness" (`dbz1_cas_sharpness` 0-1, visible solo con CAS) y "FSR quality"
+  (`dbz1_fsr_quality`), visibles al elegir CAS/FSR. Se forwardean en
   `ApplyUserSettingsToSdk` a `gpu_backend` (SetSdkString, por nombre — no es
-  símbolo linkeable), `present_effect` (símbolo linkeable REXCVAR_SET) y
-  `present_fsr_quality_mode`. **Validado en runtime (20/08)**: D3D12 (RTX 4070
-  SUPER, DXGI adapter) y **Vulkan (instancia 1.4.357, device 1.4.341)** inician
-  sin crash; FSR3 activa la rama temporal (warning "experimental temporal
-  upscaler path"). Pendiente: verificación visual del render en juego con
-  Vulkan y con FSR3.
+  símbolo linkeable), `present_effect` (símbolo linkeable REXCVAR_SET),
+  `present_fsr_quality_mode` y `present_cas_additional_sharpness`.
+  **Validado en runtime (20/08)**: D3D12 (RTX 4070 SUPER, DXGI adapter) y
+  **Vulkan (instancia 1.4.357, device 1.4.341)** inician sin crash; FSR3
+  activa la rama temporal. ⚠️ **Hallazgo FSR3**: la ruta temporal D3D12 usa
+  `reset=true` cada frame + depth/motion SINTETIZADOS del propio color
+  (`d3d12_presenter.cpp` DispatchTemporalUpscaler) → NO hay acumulación
+  temporal real (es un upscale por-frame). Funciona sin crash, marcado
+  experimental. ⚠️ **Vulkan lento/tirones** en el test del usuario (20/08):
+  el cableado es idéntico al de D3D12 (misma config de present); la lentitud
+  es del backend Vulkan de la SDK (compilación de pipelines SPIR-V + path
+  menos afinado). Marcado como **Vulkan [Experimental]**. Pendiente:
+  verificación visual del render en juego con Vulkan.
 - **Bug UI "Buscar" AFS (19/08)**: la causa raíz es que **la `SDL3-static.lib`
   del bundle se compiló con el driver DUMMY de diálogo** (`SDL_DIALOG OFF`):
   `SDL_ShowOpenFileDialog` llama al callback con NULL al instante y **nunca abre

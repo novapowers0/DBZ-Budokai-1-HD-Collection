@@ -85,14 +85,17 @@ zip del release.
     `bilinear`, igual que la SDK).
   - `dbz1_fsr_quality`: `auto`/`nativeaa`/`quality`/`balanced`/`performance`/
     `ultra_performance` (default `auto`).
+  - `dbz1_cas_sharpness`: `0..1` (default `0`), nitidez adicional de CAS.
   - Forward en `ApplyUserSettingsToSdk()`: `SetSdkString("gpu_backend", ...)`
     (por nombre, no linkeable), `REXCVAR_SET(present_effect, ...)` (símbolo
-    linkeable), `SetSdkString("present_fsr_quality_mode", ...)`.
+    linkeable), `SetSdkString("present_fsr_quality_mode", ...)`,
+    `SetSdkDouble("present_cas_additional_sharpness", ...)`.
 - **`launcher/launcher_state.cpp`** (pestaña Video, tras FXAA):
-  - Combo "Graphics backend" (Auto/D3D12/Vulkan).
+  - Combo "Graphics backend" (Auto/D3D12/**Vulkan [Experimental]**).
   - Combo "Upscaler" (Bilinear/CAS/FSR1/FSR2/FSR3).
+  - Slider "CAS sharpness" (solo visible con CAS).
   - Combo "FSR quality" (solo visible con FSR/FSR2/FSR3).
-  - Declaraciones REXCVAR_DECLARE de las 3 cvars nuevas.
+  - Declaraciones REXCVAR_DECLARE de las 4 cvars nuevas.
 
 ## Validación (runtime, RTX 4070 SUPER)
 
@@ -107,6 +110,26 @@ Log de arranque (12s) limpio en los 3 casos: `Runtime initialized successfully`,
 
 **Pendiente**: verificación VISUAL del render en juego con Vulkan y con FSR3
 (la validación fue de inicialización + ausencia de crash).
+
+## Correcciones tras el test del usuario (mismo día)
+
+- **FSR2/FSR3 en D3D12 = upscale POR-FRAME, no temporal real**. La ruta
+  temporal de `D3D12Presenter::DispatchTemporalUpscaler` (d3d12_presenter.cpp
+  línea 179) ejecuta la pasada FSR3 de ffx con `dispatch_desc.reset = true`
+  cada frame y depth/motionVectors tomados del PROPIO buffer de color (líneas
+  154-158). No hay jitter ni historial → el resultado es un upscale de un solo
+  frame (≈ FSR espacial con más coste). Funciona sin crash (el warning
+  "experimental temporal upscaler path" del log lo confirma), pero NO ofrece
+  acumulación temporal. Marcado como experimental en la UI.
+- **Nitidez CAS**: nueva cvar `dbz1_cas_sharpness` (0-1, default 0) → slider
+  "CAS sharpness" en la pestaña Video, visible SOLO cuando el Upscaler es CAS.
+  Se forwardea a `present_cas_additional_sharpness` de la SDK.
+- **Vulkan lento + tirones (test del usuario)**: el cableado (cvar gpu_backend
+  → LoadGpuPlugin → plugin_main) es idéntico al de D3D12; la configuración de
+  present (vsync, present modes) también. La lentitud es del propio backend
+  Vulkan de la SDK: compilación de pipelines SPIR-V en primer uso + camino
+  menos afinado que D3D12. Etiquetado como **"Vulkan [Experimental]"** en el
+  launcher, README y release.
 
 ## Nota: dbz1_user.toml corrupto
 
